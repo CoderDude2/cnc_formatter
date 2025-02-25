@@ -12,7 +12,9 @@ class App(tk.Tk):
         self.option_add("*Font", "Arial 11")
         self.geometry("300x400")
 
-        self.line_regex:re.Pattern = re.compile(r'(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})')
+        self.line_regex: re.Pattern = re.compile(
+            r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})"
+        )
 
         self.cnc_data_label: tk.Label = tk.Label(
             self, text="Paste Data Below", font="Arial 15"
