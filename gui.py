@@ -22,3 +22,9 @@ class App(tk.Tk):
         self.cnc_data_label.grid(row=0, column=0, sticky="we")
         self.cnc_data_textarea.grid(row=1, column=0, sticky="nsew")
         self.cnc_process_data_btn.grid(row=2, column=0, sticky="we", padx=5, pady=5)
+    
+    def process_text(self) -> None:
+        ...
+    
+    def open_output_folder(self) -> None:
+        ...
