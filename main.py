@@ -1,11 +1,11 @@
 from gui import App
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR: Path = Path(__file__).resolve().parent
 
 
 def main() -> None:
-    output_path = BASE_DIR.joinpath("output")
+    output_path: Path = BASE_DIR.joinpath("output")
     if not output_path.exists():
         output_path.mkdir()
 
