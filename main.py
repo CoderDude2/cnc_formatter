@@ -5,6 +5,10 @@ BASE_DIR = Path(__file__).resolve().parent
 
 
 def main() -> None:
+    output_path = BASE_DIR.joinpath("output")
+    if not output_path.exists():
+        output_path.mkdir()
+
     app: App = App()
     app.mainloop()
 
