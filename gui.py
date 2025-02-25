@@ -15,6 +15,14 @@ class App(tk.Tk):
             self, text="Paste Data Below", font="Arial 15"
         )
         self.cnc_data_textarea: tk.Text = tk.Text(self)
+        self.cnc_data_textarea.tag_configure(
+            "error",
+            background="#f7b0b0",
+            foreground="#000000",
+            selectbackground="#0078d7",
+            selectforeground="#ffffff",
+        )
+
         self.cnc_process_data_btn: tk.Button = tk.Button(
             self, text="Process", background="#47c9a4", foreground="#000000"
         )
