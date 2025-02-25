@@ -1,4 +1,7 @@
 from gui import App
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def main() -> None:
