@@ -1,5 +1,6 @@
 import tkinter as tk
 import re
+import os
 import subprocess
 from pathlib import Path
 from collections import namedtuple
@@ -92,6 +93,10 @@ class App(tk.Tk):
         self.y_scroll.grid(row=1, column=1, sticky='ns')
         self.cnc_process_data_btn.grid(row=2, column=0, sticky="we", padx=5, pady=5, columnspan=2)
 
+        if os.name == 'nt':
+            self.cnc_data_textarea.bind("<Button-3>", self.on_right_click)
+        else:
+            self.cnc_data_textarea.bind("<Button-2>", self.on_right_click)
     def process_text(self) -> None:
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
         machines: dict[str, list[str]] = dict()
@@ -191,7 +196,27 @@ class App(tk.Tk):
     def open_output_folder(self) -> None:
         subprocess.Popen(rf'explorer {BASE_DIR.joinpath("output")}', shell=False)
 
-    def on_paste(self, event) -> None:
+    def on_right_click(self, event) -> None:
+        rightClickMenu = tk.Menu(self, tearoff=False)
+        rightClickMenu.add_command(label="Cut", font="Arial 10", command=self.on_cut)
+        rightClickMenu.add_command(label="Copy", font="Arial 10", command=self.on_copy)
+        rightClickMenu.add_command(label="Paste", font="Arial 10", command=self.on_paste)
+        rightClickMenu.tk_popup(event.x_root, event.y_root)
+
+    def on_cut(self, event=None) -> None:
+        if self.cnc_data_textarea.tag_ranges("sel"):
+            selected_text: str = self.cnc_data_textarea.get('sel.first', 'sel.last')
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+            self.cnc_data_textarea.delete('sel.first', 'sel.last')
+    
+    def on_copy(self, event=None) -> None:
+        if self.cnc_data_textarea.tag_ranges("sel"):
+            selected_text: str = self.cnc_data_textarea.get('sel.first', 'sel.last')
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+
+    def on_paste(self, event=None) -> None:
         clipboard_text: str = self.clipboard_get()
         clipboard_text += "\n"
         if self.cnc_data_textarea.tag_ranges("sel"):
