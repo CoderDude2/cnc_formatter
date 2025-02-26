@@ -1,8 +1,10 @@
 import tkinter as tk
 import re
 from pathlib import Path
+from collections import namedtuple
 
 BASE_DIR: Path = Path(__file__).resolve().parent
+MachineData = namedtuple("MachineData", "machine pg_id")
 
 
 class App(tk.Tk):
@@ -49,42 +51,61 @@ class App(tk.Tk):
 
     def process_text(self) -> None:
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
+        machines: dict[str, list[str]] = dict()
         for i, line in enumerate(lines):
-            if self.is_valid(line):
-                if "<-- Incorrect Format" in line:
-                    self.remove_error(i + 1)
-            else:
+            if not self.is_valid(line):
                 self.insert_error(i + 1)
+                return
+
+            self.remove_error(i + 1)
+            machine_data: MachineData | None = self.get_machine_data(line)
+            if machine_data:
+                if not machines.get(machine_data.machine):
+                    machines[machine_data.machine] = [machine_data.pg_id]
+                else:
+                    machines[machine_data.machine].append(machine_data.pg_id)
+
+        print(machines)
 
     def is_valid(self, line_text: str) -> bool:
-        line_regex = self.line_regex.match(line_text)
+        if re.match(r"\s+[\n]?", line_text) or line_text == "":
+            return True
+
+        line_regex: re.Match | None = self.line_regex.match(line_text)
 
         if not line_regex:
             return False
 
-        if not len(line_regex.group("pg_id")) == 4:
-            return False
-
         return True
+
+    def get_machine_data(self, line_text: str) -> MachineData | None:
+        line_regex: re.Match | None = self.line_regex.match(line_text)
+        if line_regex:
+            return MachineData(line_regex.group("machine"), line_regex.group("pg_id"))
+        return None
 
     def insert_error(self, line_index: int) -> None:
         line_count: tuple[int] | None = self.cnc_data_textarea.count(
             "1.0", "end", "lines"
         )
-
         if line_count and line_index < line_count[0]:
             line_text: str = self.cnc_data_textarea.get(
                 f"{line_index}.0", f"{line_index}.end"
             )
-            if "<-- Incorrect Format" not in line_text:
+            if "<-- Incorrect Format" not in line_text and line_text != "\n":
                 self.cnc_data_textarea.insert(
                     f"{line_index}.end", " <-- Incorrect Format"
                 )
                 self.cnc_data_textarea.tag_add(
                     "error", f"{line_index}.0 linestart", f"{line_index}.0 lineend"
                 )
+            self.cnc_data_textarea.see(f"{line_index}.0")
 
     def remove_error(self, line_index: int) -> None:
+        tags = self.cnc_data_textarea.tag_names(f"{line_index}.0")
+        if tags and "error" not in tags:
+            return
+
         text: str = self.cnc_data_textarea.get(
             f"{line_index}.0 linestart", f"{line_index}.0 lineend"
         )
@@ -102,6 +123,6 @@ class App(tk.Tk):
     def on_paste(self, event) -> None:
         clipboard_text: str = self.clipboard_get()
         clipboard_text += "\n"
-        if self.cnc_data_textarea.tag_ranges('sel'):
+        if self.cnc_data_textarea.tag_ranges("sel"):
             self.cnc_data_textarea.delete("sel.first", "sel.last")
         self.cnc_data_textarea.insert("current", clipboard_text)
