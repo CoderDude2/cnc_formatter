@@ -116,14 +116,19 @@ class App(tk.Tk):
         with machine_file_path.open('w+') as file:
             file.write(header)
 
-            for i in range(4):
-                file.write(f'#50{i+1}=\nG4 U0.5\n')
-
-            num: int = 505
+            num: int = 501
+            while num < 505:
+                file.write(f'#{num}=\nG4 U0.5\n')
+                num += 1
+            
             for pg_id in pg_ids:
                 file.write(f'#{num}={pg_id}\nG4 U0.5\n')
                 num += 1
             
+            while num < 600:
+                file.write(f'#{num}=\nG4 U0.5\n')
+                num += 1
+
             file.write(FOOTER_TEXT)
 
 
