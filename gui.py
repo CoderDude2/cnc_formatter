@@ -47,6 +47,7 @@ A2-LE-2-20-12-P-M
 #25980=0000000000
 %"""
 
+
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -75,8 +76,10 @@ class App(tk.Tk):
         )
         self.cnc_data_textarea.bind("<Control-v>", self.on_paste)
 
-        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(self, orient='vertical', command=self.cnc_data_textarea.yview)
-        self.cnc_data_textarea['yscrollcommand'] = self.y_scroll.set
+        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
+            self, orient="vertical", command=self.cnc_data_textarea.yview
+        )
+        self.cnc_data_textarea["yscrollcommand"] = self.y_scroll.set
 
         self.cnc_process_data_btn: tk.Button = tk.Button(
             self,
@@ -91,14 +94,21 @@ class App(tk.Tk):
 
         self.cnc_data_label.grid(row=0, column=0, sticky="we", columnspan=2)
         self.cnc_data_textarea.grid(row=1, column=0, sticky="nsew")
-        self.y_scroll.grid(row=1, column=1, sticky='ns')
-        self.cnc_process_data_btn.grid(row=2, column=0, sticky="we", padx=5, pady=5, columnspan=2)
+        self.y_scroll.grid(row=1, column=1, sticky="ns")
+        self.cnc_process_data_btn.grid(
+            row=2, column=0, sticky="we", padx=5, pady=5, columnspan=2
+        )
 
-        if os.name == 'nt':
+        if os.name == "nt":
             self.cnc_data_textarea.bind("<Button-3>", self.on_right_click)
         else:
             self.cnc_data_textarea.bind("<Button-2>", self.on_right_click)
+
     def process_text(self) -> None:
+        for file in BASE_DIR.joinpath("output").iterdir():
+            if file.is_file():
+                os.remove(file)
+        
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
         machines: dict[str, list[str]] = dict()
         for i, line in enumerate(lines):
@@ -114,34 +124,33 @@ class App(tk.Tk):
                 else:
                     machines[machine_data.machine].append(machine_data.pg_id)
 
-        self.cnc_data_textarea.delete('1.0', 'end')
-        for k,v in machines.items():
+        self.cnc_data_textarea.delete("1.0", "end")
+        for k, v in machines.items():
             self.create_machine_file(k, v)
         self.open_output_folder()
-    
+
     def create_machine_file(self, machine: str, pg_ids: list[str]) -> None:
-        machine_file_path:Path = BASE_DIR.joinpath(f"output/1{int(machine)}.prg")
+        machine_file_path: Path = BASE_DIR.joinpath(f"output/1{int(machine)}.prg")
         machine_file_path.touch()
 
-        header: str = (f"O1{int(machine)}(FOR INPUT           )\n$1\n")
-        with machine_file_path.open('w+') as file:
+        header: str = f"O1{int(machine)}(FOR INPUT           )\n$1\n"
+        with machine_file_path.open("w+") as file:
             file.write(header)
 
             num: int = 501
             while num < 505:
-                file.write(f'#{num}=\nG4 U0.5\n')
+                file.write(f"#{num}=\nG4 U0.5\n")
                 num += 1
-            
+
             for pg_id in pg_ids:
-                file.write(f'#{num}={pg_id}\nG4 U0.5\n')
+                file.write(f"#{num}={pg_id}\nG4 U0.5\n")
                 num += 1
-            
+
             while num < 600:
-                file.write(f'#{num}=\nG4 U0.5\n')
+                file.write(f"#{num}=\nG4 U0.5\n")
                 num += 1
 
             file.write(FOOTER_TEXT)
-
 
     def is_valid(self, line_text: str) -> bool:
         if re.match(r"\s+[\n]?", line_text) or line_text == "":
@@ -195,25 +204,27 @@ class App(tk.Tk):
             )
 
     def open_output_folder(self) -> None:
-        subprocess.Popen(rf'explorer {BASE_DIR.joinpath("output")}', shell=False)
+        subprocess.Popen(rf"explorer {BASE_DIR.joinpath('output')}", shell=False)
 
     def on_right_click(self, event) -> None:
         rightClickMenu = tk.Menu(self, tearoff=False)
         rightClickMenu.add_command(label="Cut", font="Arial 10", command=self.on_cut)
         rightClickMenu.add_command(label="Copy", font="Arial 10", command=self.on_copy)
-        rightClickMenu.add_command(label="Paste", font="Arial 10", command=self.on_paste)
+        rightClickMenu.add_command(
+            label="Paste", font="Arial 10", command=self.on_paste
+        )
         rightClickMenu.tk_popup(event.x_root, event.y_root)
 
     def on_cut(self, event=None) -> None:
         if self.cnc_data_textarea.tag_ranges("sel"):
-            selected_text: str = self.cnc_data_textarea.get('sel.first', 'sel.last')
+            selected_text: str = self.cnc_data_textarea.get("sel.first", "sel.last")
             self.clipboard_clear()
             self.clipboard_append(selected_text)
-            self.cnc_data_textarea.delete('sel.first', 'sel.last')
-    
+            self.cnc_data_textarea.delete("sel.first", "sel.last")
+
     def on_copy(self, event=None) -> None:
         if self.cnc_data_textarea.tag_ranges("sel"):
-            selected_text: str = self.cnc_data_textarea.get('sel.first', 'sel.last')
+            selected_text: str = self.cnc_data_textarea.get("sel.first", "sel.last")
             self.clipboard_clear()
             self.clipboard_append(selected_text)
 
