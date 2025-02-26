@@ -179,7 +179,7 @@ class App(tk.Tk):
             )
 
     def open_output_folder(self) -> None:
-        subprocess.Popen(rf'explorer {BASE_DIR.joinpath("output")}')
+        subprocess.Popen(rf'explorer {BASE_DIR.joinpath("output")}', shell=False)
 
     def on_paste(self, event) -> None:
         clipboard_text: str = self.clipboard_get()
