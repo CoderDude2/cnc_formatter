@@ -15,7 +15,7 @@ class App(tk.Tk):
         self.event_delete("<<Paste>>", "<Control-v>")
 
         self.line_regex: re.Pattern = re.compile(
-            r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})"
+            r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})(?![0-9a-zA-Z])"
         )
 
         self.cnc_data_label: tk.Label = tk.Label(
@@ -51,15 +51,26 @@ class App(tk.Tk):
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
         for i, line in enumerate(lines):
             if self.is_valid(line):
-                ...
+                if "<-- Incorrect Format" in line:
+                    self.remove_error(i + 1)
             else:
                 self.insert_error(i + 1)
 
     def is_valid(self, line_text: str) -> bool:
-        return True if self.line_regex.match(line_text) else False
+        line_regex = self.line_regex.match(line_text)
+
+        if not line_regex:
+            return False
+
+        if not len(line_regex.group("pg_id")) == 4:
+            return False
+
+        return True
 
     def insert_error(self, line_index: int) -> None:
-        line_count:tuple[int]|None = self.cnc_data_textarea.count("1.0", "end", "lines")
+        line_count: tuple[int] | None = self.cnc_data_textarea.count(
+            "1.0", "end", "lines"
+        )
 
         if line_count and line_index < line_count[0]:
             line_text: str = self.cnc_data_textarea.get(
@@ -73,13 +84,24 @@ class App(tk.Tk):
                     "error", f"{line_index}.0 linestart", f"{line_index}.0 lineend"
                 )
 
+    def remove_error(self, line_index: int) -> None:
+        text: str = self.cnc_data_textarea.get(
+            f"{line_index}.0 linestart", f"{line_index}.0 lineend"
+        )
+        line_match: re.Match | None = self.line_regex.match(text)
+
+        if line_match:
+            self.cnc_data_textarea.replace(
+                f"{line_index}.0 linestart",
+                f"{line_index}.0 lineend",
+                line_match.group(0),
+            )
+
     def open_output_folder(self) -> None: ...
 
     def on_paste(self, event) -> None:
-        clipboard_text:str = self.clipboard_get()
+        clipboard_text: str = self.clipboard_get()
         clipboard_text += "\n"
-        try:
+        if self.cnc_data_textarea.tag_ranges('sel'):
             self.cnc_data_textarea.delete("sel.first", "sel.last")
-        except tk.TclError:
-            print("No selection")
         self.cnc_data_textarea.insert("current", clipboard_text)
