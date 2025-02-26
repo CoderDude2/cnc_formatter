@@ -12,6 +12,8 @@ class App(tk.Tk):
         self.option_add("*Font", "Arial 11")
         self.geometry("300x400")
 
+        self.event_delete("<<Paste>>", "<Control-v>")
+
         self.line_regex: re.Pattern = re.compile(
             r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})"
         )
@@ -28,6 +30,7 @@ class App(tk.Tk):
             selectbackground="#0078d7",
             selectforeground="#ffffff",
         )
+        self.cnc_data_textarea.bind("<Control-v>", self.on_paste)
 
         self.cnc_process_data_btn: tk.Button = tk.Button(
             self,
@@ -44,14 +47,21 @@ class App(tk.Tk):
         self.cnc_data_textarea.grid(row=1, column=0, sticky="nsew")
         self.cnc_process_data_btn.grid(row=2, column=0, sticky="we", padx=5, pady=5)
 
-    def process_text(self) -> None: ...
+    def process_text(self) -> None:
+        lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
+        for i, line in enumerate(lines):
+            if self.is_valid(line):
+                ...
+            else:
+                self.insert_error(i + 1)
 
     def is_valid(self, line_text: str) -> bool:
         return True if self.line_regex.match(line_text) else False
 
     def insert_error(self, line_index: int) -> None:
-        line_count = len(self.cnc_data_textarea.get("1.0", "end-1l").splitlines())
-        if line_index < line_count:
+        line_count:tuple[int]|None = self.cnc_data_textarea.count("1.0", "end", "lines")
+
+        if line_count and line_index < line_count[0]:
             line_text: str = self.cnc_data_textarea.get(
                 f"{line_index}.0", f"{line_index}.end"
             )
@@ -60,7 +70,16 @@ class App(tk.Tk):
                     f"{line_index}.end", " <-- Incorrect Format"
                 )
                 self.cnc_data_textarea.tag_add(
-                    "error", f"{line_index}.0", f"{line_index}.end"
+                    "error", f"{line_index}.0 linestart", f"{line_index}.0 lineend"
                 )
 
     def open_output_folder(self) -> None: ...
+
+    def on_paste(self, event) -> None:
+        clipboard_text:str = self.clipboard_get()
+        clipboard_text += "\n"
+        try:
+            self.cnc_data_textarea.delete("sel.first", "sel.last")
+        except tk.TclError:
+            print("No selection")
+        self.cnc_data_textarea.insert("current", clipboard_text)
