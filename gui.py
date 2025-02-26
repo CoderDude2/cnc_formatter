@@ -50,6 +50,7 @@ A2-LE-2-20-12-P-M
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
+        self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
         self.title("CNC Formatter")
         self.option_add("*Font", "Arial 11")
         self.geometry("300x400")
