@@ -3,6 +3,7 @@ import re
 import subprocess
 from pathlib import Path
 from collections import namedtuple
+from tkinter import ttk
 
 BASE_DIR: Path = Path(__file__).resolve().parent
 MachineData = namedtuple("MachineData", "machine pg_id")
@@ -59,7 +60,7 @@ class App(tk.Tk):
         )
 
         self.cnc_data_label: tk.Label = tk.Label(
-            self, text="Paste Data Below", font="Arial 15"
+            self, text="Paste Data Below", font="Arial 11 bold"
         )
 
         self.cnc_data_textarea: tk.Text = tk.Text(self)
@@ -72,6 +73,9 @@ class App(tk.Tk):
         )
         self.cnc_data_textarea.bind("<Control-v>", self.on_paste)
 
+        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(self, orient='vertical', command=self.cnc_data_textarea.yview)
+        self.cnc_data_textarea['yscrollcommand'] = self.y_scroll.set
+
         self.cnc_process_data_btn: tk.Button = tk.Button(
             self,
             text="Process",
@@ -83,9 +87,10 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        self.cnc_data_label.grid(row=0, column=0, sticky="we")
+        self.cnc_data_label.grid(row=0, column=0, sticky="we", columnspan=2)
         self.cnc_data_textarea.grid(row=1, column=0, sticky="nsew")
-        self.cnc_process_data_btn.grid(row=2, column=0, sticky="we", padx=5, pady=5)
+        self.y_scroll.grid(row=1, column=1, sticky='ns')
+        self.cnc_process_data_btn.grid(row=2, column=0, sticky="we", padx=5, pady=5, columnspan=2)
 
     def process_text(self) -> None:
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
