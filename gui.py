@@ -1,5 +1,6 @@
 import tkinter as tk
 import re
+import subprocess
 from pathlib import Path
 from collections import namedtuple
 
@@ -105,6 +106,7 @@ class App(tk.Tk):
         self.cnc_data_textarea.delete('1.0', 'end')
         for k,v in machines.items():
             self.create_machine_file(k, v)
+        self.open_output_folder()
     
     def create_machine_file(self, machine: str, pg_ids: list[str]) -> None:
         machine_file_path:Path = BASE_DIR.joinpath(f"output/1{int(machine)}.prg")
@@ -176,7 +178,8 @@ class App(tk.Tk):
                 line_match.group(0),
             )
 
-    def open_output_folder(self) -> None: ...
+    def open_output_folder(self) -> None:
+        subprocess.Popen(rf'explorer {BASE_DIR.joinpath("output")}')
 
     def on_paste(self, event) -> None:
         clipboard_text: str = self.clipboard_get()
