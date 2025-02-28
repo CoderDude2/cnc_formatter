@@ -231,6 +231,19 @@ class CNCFormatter(tk.Frame):
         self.cnc_data_textarea.insert("current", clipboard_text)
 
 
+class MachineSettings(tk.Frame):
+    def __init__(self) -> None:
+        super().__init__()
+
+        style = ttk.Style(self)
+        style.configure('lefttab.TNotebook', tabposition='wn')
+
+        self.machine_tabs:ttk.Notebook = ttk.Notebook(self, style="lefttab.TNotebook")
+        for i in range(14):
+            self.machine_tabs.add(tk.Text(), text=f"Machine {i+1}", sticky='nsew')
+
+        self.machine_tabs.pack(expand=True, fill=tk.BOTH)
+
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -241,7 +254,7 @@ class App(tk.Tk):
 
         self.tabmenu: ttk.Notebook = ttk.Notebook(self)
         self.tabmenu.add(CNCFormatter(), text='Process Data', sticky='nsew')
-        self.tabmenu.add(tk.Frame(), text='Machines')
+        self.tabmenu.add(MachineSettings(), text='Machines')
 
         self.tabmenu.pack(expand=True, fill=tk.BOTH)
 
