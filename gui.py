@@ -7,6 +7,8 @@ from collections import namedtuple
 from tkinter import ttk
 
 BASE_DIR: Path = Path(__file__).resolve().parent
+MACHINE_DIR: Path = BASE_DIR / "machines"
+OUTPUT_DIR: Path = BASE_DIR / "output"
 MachineData = namedtuple("MachineData", "machine pg_id")
 
 FOOTER_TEXT = """
