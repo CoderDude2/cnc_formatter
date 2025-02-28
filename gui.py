@@ -47,14 +47,9 @@ A2-LE-2-20-12-P-M
 #25980=0000000000
 %"""
 
-
-class App(tk.Tk):
+class CNCFormatter(tk.Frame):
     def __init__(self) -> None:
         super().__init__()
-        self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
-        self.title("CNC Formatter")
-        self.option_add("*Font", "Arial 11")
-        self.geometry("300x400")
 
         self.event_delete("<<Paste>>", "<Control-v>")
 
@@ -234,3 +229,16 @@ class App(tk.Tk):
         if self.cnc_data_textarea.tag_ranges("sel"):
             self.cnc_data_textarea.delete("sel.first", "sel.last")
         self.cnc_data_textarea.insert("current", clipboard_text)
+
+
+class App(tk.Tk):
+    def __init__(self) -> None:
+        super().__init__()
+        self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
+        self.title("CNC Formatter")
+        self.option_add("*Font", "Arial 11")
+        self.geometry("300x400")
+
+        cnc_formatter: CNCFormatter = CNCFormatter()
+        cnc_formatter.pack()
+        
