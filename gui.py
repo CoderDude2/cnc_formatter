@@ -47,6 +47,7 @@ A2-LE-2-20-12-P-M
 #25980=0000000000
 %"""
 
+
 class CNCFormatter(tk.Frame):
     def __init__(self) -> None:
         super().__init__()
@@ -103,7 +104,7 @@ class CNCFormatter(tk.Frame):
         for file in BASE_DIR.joinpath("output").iterdir():
             if file.is_file():
                 os.remove(file)
-        
+
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
         machines: dict[str, list[str]] = dict()
         for i, line in enumerate(lines):
@@ -234,15 +235,59 @@ class CNCFormatter(tk.Frame):
 class MachineSettings(tk.Frame):
     def __init__(self) -> None:
         super().__init__()
+        self.cur_selection = 0
+        self.machines_directory: Path = BASE_DIR / "machines"
 
-        style = ttk.Style(self)
-        style.configure('lefttab.TNotebook', tabposition='wn')
+        self.add_machine_btn = tk.Button(
+            self, text="Add Machine", command=self.add_machine
+        )
+        self.listbox = tk.Listbox(self, width=10)
+        self.textbox = tk.Text(self)
 
-        self.machine_tabs:ttk.Notebook = ttk.Notebook(self, style="lefttab.TNotebook")
-        for i in range(14):
-            self.machine_tabs.add(tk.Text(), text=f"Machine {i+1}", sticky='nsew')
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(1, weight=1)
 
-        self.machine_tabs.pack(expand=True, fill=tk.BOTH)
+        self.add_machine_btn.grid(row=0, column=0, sticky="nsew")
+        self.listbox.grid(row=1, column=0, sticky="nsew")
+        self.textbox.grid(row=0, column=1, rowspan=2, sticky="nsew")
+
+        self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
+        self.listbox.bind("<Button-1>", self.on_listbox_click)
+        self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
+
+        self.get_machines()
+
+    def on_listbox_click(self, event) -> None:
+        if self.cur_selection:
+            self.listbox.activate(self.cur_selection)
+
+    def on_listbox_select(self, event) -> None:
+        if self.listbox.curselection():
+            self.textbox.delete("1.0", "end")
+            selected_item: str = self.listbox.get(self.listbox.curselection())
+            file_name = selected_item.split(" ")[1] + ".txt"
+            with open(BASE_DIR / "machines" / file_name, "r") as file:
+                contents = file.read()
+            self.textbox.insert("end", contents)
+            self.cur_selection = self.listbox.curselection()
+
+    def get_machines(self) -> None:
+        for file in sorted(list(self.machines_directory.iterdir())):
+            self.listbox.insert(tk.END, f"Machine {file.stem}")
+
+    def add_machine(self) -> None:
+        file_count: int = len(list(self.machines_directory.iterdir()))
+        file_name = self.machines_directory / f"{file_count + 1}.txt"
+        file_name.touch()
+        self.listbox.insert("end", f"Machine {file_count + 1}")
+
+    def on_textbox_edit(self, event) -> None:
+        if self.cur_selection:
+            selected_item = self.listbox.get(self.cur_selection)
+            file_name = selected_item.split(" ")[1] + ".txt"
+            with open(self.machines_directory / file_name, "w+") as file:
+                file.write(self.textbox.get("1.0", "end"))
+
 
 class App(tk.Tk):
     def __init__(self) -> None:
@@ -253,9 +298,7 @@ class App(tk.Tk):
         self.geometry("300x400")
 
         self.tabmenu: ttk.Notebook = ttk.Notebook(self)
-        self.tabmenu.add(CNCFormatter(), text='Process Data', sticky='nsew')
-        self.tabmenu.add(MachineSettings(), text='Machines')
+        self.tabmenu.add(CNCFormatter(), text="Process Data", sticky="nsew")
+        self.tabmenu.add(MachineSettings(), text="Machines")
 
         self.tabmenu.pack(expand=True, fill=tk.BOTH)
-
-        
