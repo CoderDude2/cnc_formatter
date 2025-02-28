@@ -239,6 +239,10 @@ class App(tk.Tk):
         self.option_add("*Font", "Arial 11")
         self.geometry("300x400")
 
-        cnc_formatter: CNCFormatter = CNCFormatter()
-        cnc_formatter.pack()
+        self.tabmenu: ttk.Notebook = ttk.Notebook(self)
+        self.tabmenu.add(CNCFormatter(), text='Process Data', sticky='nsew')
+        self.tabmenu.add(tk.Frame(), text='Machines')
+
+        self.tabmenu.pack(expand=True, fill=tk.BOTH)
+
         
