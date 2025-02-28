@@ -210,14 +210,18 @@ class CNCFormatter(tk.Frame):
 class MachineSettings(tk.Frame):
     def __init__(self) -> None:
         super().__init__()
-        self.cur_selection = 0
-        self.machines_directory: Path = BASE_DIR / "machines"
+        super().__init__()
 
-        self.add_machine_btn = tk.Button(
-            self, text="Add Machine", command=self.add_machine
+        self.add_machine_btn: tk.Button = tk.Button(
+            self, text="+ Add Machine", command=self.add_machine
         )
-        self.listbox = tk.Listbox(self, width=10)
+        self.listbox = tk.Listbox(self, width=10, exportselection=False)
         self.textbox = tk.Text(self)
+
+        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
+            self, orient="vertical", command=self.textbox.yview
+        )
+        self.textbox["yscrollcommand"] = self.y_scroll.set
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -225,12 +229,9 @@ class MachineSettings(tk.Frame):
         self.add_machine_btn.grid(row=0, column=0, sticky="nsew")
         self.listbox.grid(row=1, column=0, sticky="nsew")
         self.textbox.grid(row=0, column=1, rowspan=2, sticky="nsew")
+        self.y_scroll.grid(row=0, column=2, sticky="ns", rowspan=2)
 
-        self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
-        self.listbox.bind("<Button-1>", self.on_listbox_click)
-        self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
-
-        self.get_machines()
+        # self.get_machines()
 
     def on_listbox_click(self, event) -> None:
         if self.cur_selection:
