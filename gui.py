@@ -7,6 +7,9 @@ from collections import namedtuple
 from tkinter import ttk
 
 BASE_DIR: Path = Path(__file__).resolve().parent
+MACHINE_DIR: Path = BASE_DIR / "machines"
+OUTPUT_DIR: Path = BASE_DIR / "output"
+
 MachineData = namedtuple("MachineData", "machine pg_id")
 
 FOOTER_TEXT = """
@@ -19,44 +22,12 @@ $2
 M2
 M99
 
-$0
-A2-LE-2-20-12-P-M
-#814=0000014000
-#815=0000005000
-#816=0000001000
-#817=0002500000
-#822=0000000010
-#824=-000001000
-#818=0000060000
-#819=0000001000
-#918=0000000000
-#821=0000000000
-#921=0000000000
-#919=0000000000
-#922=0000000000
-#990=0004136000
-#991=0000055000
-#992=0000067000
-#893=0000000000
-#25974=0004050000
-#25975=0004058000
-#25976=0004058000
-#25977=0000000000
-#25978=0000000000
-#25979=0000000000
-#25980=0000000000
-%"""
+"""
 
 
-class App(tk.Tk):
-    def __init__(self) -> None:
-        super().__init__()
-        self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
-        self.title("CNC Formatter")
-        self.option_add("*Font", "Arial 11")
-        self.geometry("300x400")
-
-        self.event_delete("<<Paste>>", "<Control-v>")
+class CNCFormatter(tk.Frame):
+    def __init__(self, parent, **kwargs) -> None:
+        super().__init__(parent, **kwargs)
 
         self.line_regex: re.Pattern = re.compile(
             r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})(?![0-9a-zA-Z])"
@@ -74,7 +45,7 @@ class App(tk.Tk):
             selectbackground="#0078d7",
             selectforeground="#ffffff",
         )
-        self.cnc_data_textarea.bind("<Control-v>", self.on_paste)
+        self.cnc_data_textarea.bind("<<Paste>>", self.on_paste)
 
         self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
             self, orient="vertical", command=self.cnc_data_textarea.yview
@@ -105,10 +76,10 @@ class App(tk.Tk):
             self.cnc_data_textarea.bind("<Button-2>", self.on_right_click)
 
     def process_text(self) -> None:
-        for file in BASE_DIR.joinpath("output").iterdir():
+        for file in OUTPUT_DIR.iterdir():
             if file.is_file():
                 os.remove(file)
-        
+
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
         machines: dict[str, list[str]] = dict()
         for i, line in enumerate(lines):
@@ -130,10 +101,10 @@ class App(tk.Tk):
         self.open_output_folder()
 
     def create_machine_file(self, machine: str, pg_ids: list[str]) -> None:
-        machine_file_path: Path = BASE_DIR.joinpath(f"output/1{int(machine)}.prg")
+        machine_file_path: Path = OUTPUT_DIR.joinpath(f"{int(machine)}.prg")
         machine_file_path.touch()
 
-        header: str = f"O1{int(machine)}(FOR INPUT           )\n$1\n"
+        header: str = f"O{int(machine)}(FOR INPUT           )\n$1\n"
         with machine_file_path.open("w+") as file:
             file.write(header)
 
@@ -151,6 +122,13 @@ class App(tk.Tk):
                 num += 1
 
             file.write(FOOTER_TEXT)
+
+            machine_settings_file: Path = MACHINE_DIR.joinpath(f"{int(machine)}.txt")
+            if machine_settings_file.exists():
+                with open(machine_settings_file) as machine_file:
+                    content = machine_file.read()
+
+                file.write(content)
 
     def is_valid(self, line_text: str) -> bool:
         if re.match(r"\s+[\n]?", line_text) or line_text == "":
@@ -204,7 +182,7 @@ class App(tk.Tk):
             )
 
     def open_output_folder(self) -> None:
-        subprocess.Popen(rf"explorer {BASE_DIR.joinpath('output')}", shell=False)
+        subprocess.Popen(rf"explorer {OUTPUT_DIR}", shell=False)
 
     def on_right_click(self, event) -> None:
         rightClickMenu = tk.Menu(self, tearoff=False)
@@ -234,3 +212,141 @@ class App(tk.Tk):
         if self.cnc_data_textarea.tag_ranges("sel"):
             self.cnc_data_textarea.delete("sel.first", "sel.last")
         self.cnc_data_textarea.insert("current", clipboard_text)
+
+
+class MachineSettings(tk.Frame):
+    def __init__(self, parent, **kwargs) -> None:
+        super().__init__(parent, **kwargs)
+
+        self.add_machine_btn: tk.Button = tk.Button(
+            self, text="+ Add Machine", command=self.add_machine
+        )
+        self.listbox = tk.Listbox(self, width=10, exportselection=False)
+        self.textbox = tk.Text(self)
+
+        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
+            self, orient="vertical", command=self.textbox.yview
+        )
+        self.textbox["yscrollcommand"] = self.y_scroll.set
+
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        self.add_machine_btn.grid(row=0, column=0, sticky="nsew")
+        self.listbox.grid(row=1, column=0, sticky="nsew")
+        self.textbox.grid(row=0, column=1, rowspan=2, sticky="nsew")
+        self.y_scroll.grid(row=0, column=2, sticky="ns", rowspan=2)
+
+        self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
+        self.listbox.bind("<Button-1>", self.on_listbox_click)
+        self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
+        self.textbox.bind("<<Paste>>", self.on_paste)
+        self.textbox.bind("<<Cut>>", self.on_cut)
+        self.textbox.bind("<<Copy>>", self.on_copy)
+
+        if os.name == "nt":
+            self.textbox.bind("<Button-3>", self.on_right_click)
+            self.listbox.bind("<Button-3>", self.on_listbox_right_click)
+        else:
+            self.textbox.bind("<Button-2>", self.on_right_click)
+            self.listbox.bind("<Button-2>", self.on_listbox_right_click)
+
+        self.get_machines()
+
+    def on_listbox_click(self, event) -> None:
+        if self.listbox.curselection():
+            self.listbox.activate(self.listbox.curselection())
+
+    def on_listbox_select(self, event) -> None:
+        if self.listbox.curselection():
+            self.textbox.delete("1.0", "end")
+            selected_item: str = self.listbox.get(self.listbox.curselection())
+            file_name = selected_item.split(" ")[1] + ".txt"
+            with open(BASE_DIR / "machines" / file_name, "r") as file:
+                contents = file.read()
+            self.textbox.insert("end", contents)
+
+    def get_machines(self) -> None:
+        files = list(MACHINE_DIR.iterdir())
+        files = sorted(files, key=lambda file: int(file.stem))
+        for file in files:
+            self.listbox.insert(tk.END, f"Machine {file.stem}")
+
+    def add_machine(self) -> None:
+        file_count: int = len(list(MACHINE_DIR.iterdir()))
+        file_name = MACHINE_DIR / f"{file_count + 1}.txt"
+        file_name.touch()
+        self.listbox.insert("end", f"Machine {file_count + 1}")
+
+    def delete_machine(self, event=None) -> None:
+        if self.listbox.curselection():
+            file_name = (
+                self.listbox.get(self.listbox.curselection()).split(" ")[1] + ".txt"
+            )
+            (MACHINE_DIR / file_name).unlink()
+            self.listbox.delete(self.listbox.curselection())
+
+    def on_textbox_edit(self, event=None) -> None:
+        if self.listbox.curselection():
+            selected_item = self.listbox.get(self.listbox.curselection())
+            file_name = selected_item.split(" ")[1] + ".txt"
+            with open(MACHINE_DIR / file_name, "w+") as file:
+                file.write(self.textbox.get("1.0", "end"))
+
+    def on_listbox_right_click(self, event) -> None:
+        if self.listbox.get(0, "end"):
+            self.listbox.selection_clear(0, tk.END)
+            self.listbox.selection_set(self.listbox.nearest(event.y))
+            self.listbox.activate(self.listbox.nearest(event.y))
+            rightClickMenu = tk.Menu(self, tearoff=False)
+            rightClickMenu.add_command(
+                label="Delete", font="Arial 10", command=self.delete_machine
+            )
+            rightClickMenu.tk_popup(event.x_root, event.y_root)
+
+    def on_right_click(self, event) -> None:
+        rightClickMenu = tk.Menu(self, tearoff=False)
+        rightClickMenu.add_command(label="Cut", font="Arial 10", command=self.on_cut)
+        rightClickMenu.add_command(label="Copy", font="Arial 10", command=self.on_copy)
+        rightClickMenu.add_command(
+            label="Paste", font="Arial 10", command=self.on_paste
+        )
+        rightClickMenu.tk_popup(event.x_root, event.y_root)
+
+    def on_cut(self, event=None) -> None:
+        if self.textbox.tag_ranges("sel"):
+            selected_text: str = self.textbox.get("sel.first", "sel.last")
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+            self.textbox.delete("sel.first", "sel.last")
+            self.on_textbox_edit()
+
+    def on_copy(self, event=None) -> None:
+        if self.textbox.tag_ranges("sel"):
+            selected_text: str = self.textbox.get("sel.first", "sel.last")
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+            self.on_textbox_edit()
+
+    def on_paste(self, event=None) -> None:
+        clipboard_text: str = self.clipboard_get()
+        clipboard_text += "\n"
+        if self.textbox.tag_ranges("sel"):
+            self.textbox.delete("sel.first", "sel.last")
+        self.textbox.insert("current", clipboard_text)
+        self.on_textbox_edit()
+
+
+class App(tk.Tk):
+    def __init__(self) -> None:
+        super().__init__()
+        self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
+        self.title("CNC Formatter")
+        self.option_add("*Font", "Arial 11")
+        self.geometry("300x400")
+
+        self.tabmenu: ttk.Notebook = ttk.Notebook(self)
+        self.tabmenu.add(CNCFormatter(self), text="Process Data", sticky="nsew")
+        self.tabmenu.add(MachineSettings(self), text="Machines")
+
+        self.tabmenu.pack(expand=True, fill=tk.BOTH)
