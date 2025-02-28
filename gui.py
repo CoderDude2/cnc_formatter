@@ -9,6 +9,7 @@ from tkinter import ttk
 BASE_DIR: Path = Path(__file__).resolve().parent
 MACHINE_DIR: Path = BASE_DIR / "machines"
 OUTPUT_DIR: Path = BASE_DIR / "output"
+
 MachineData = namedtuple("MachineData", "machine pg_id")
 
 FOOTER_TEXT = """
@@ -77,7 +78,7 @@ class CNCFormatter(tk.Frame):
             self.cnc_data_textarea.bind("<Button-2>", self.on_right_click)
 
     def process_text(self) -> None:
-        for file in BASE_DIR.joinpath("output").iterdir():
+        for file in OUTPUT_DIR.iterdir():
             if file.is_file():
                 os.remove(file)
 
@@ -102,10 +103,10 @@ class CNCFormatter(tk.Frame):
         self.open_output_folder()
 
     def create_machine_file(self, machine: str, pg_ids: list[str]) -> None:
-        machine_file_path: Path = BASE_DIR.joinpath(f"output/1{int(machine)}.prg")
+        machine_file_path: Path = OUTPUT_DIR.joinpath(f"{int(machine)}.prg")
         machine_file_path.touch()
 
-        header: str = f"O1{int(machine)}(FOR INPUT           )\n$1\n"
+        header: str = f"O{int(machine)}(FOR INPUT           )\n$1\n"
         with machine_file_path.open("w+") as file:
             file.write(header)
 
@@ -176,7 +177,7 @@ class CNCFormatter(tk.Frame):
             )
 
     def open_output_folder(self) -> None:
-        subprocess.Popen(rf"explorer {BASE_DIR.joinpath('output')}", shell=False)
+        subprocess.Popen(rf"explorer {OUTPUT_DIR}", shell=False) 
 
     def on_right_click(self, event) -> None:
         rightClickMenu = tk.Menu(self, tearoff=False)
