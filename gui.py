@@ -231,7 +231,21 @@ class MachineSettings(tk.Frame):
         self.textbox.grid(row=0, column=1, rowspan=2, sticky="nsew")
         self.y_scroll.grid(row=0, column=2, sticky="ns", rowspan=2)
 
-        # self.get_machines()
+        self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
+        self.listbox.bind("<Button-1>", self.on_listbox_click)
+        self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
+        self.textbox.bind("<<Paste>>", self.on_paste)
+        self.textbox.bind("<<Cut>>", self.on_cut)
+        self.textbox.bind("<<Copy>>", self.on_copy)
+
+        if os.name == "nt":
+            self.textbox.bind("<Button-3>", self.on_right_click)
+            self.listbox.bind("<Button-3>", self.on_listbox_right_click)
+        else:
+            self.textbox.bind("<Button-2>", self.on_right_click)
+            self.listbox.bind("<Button-2>", self.on_listbox_right_click)
+
+        self.get_machines()
 
     def on_listbox_click(self, event) -> None:
         if self.listbox.curselection():
