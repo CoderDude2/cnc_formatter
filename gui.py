@@ -234,8 +234,8 @@ class MachineSettings(tk.Frame):
         # self.get_machines()
 
     def on_listbox_click(self, event) -> None:
-        if self.cur_selection:
-            self.listbox.activate(self.cur_selection)
+        if self.listbox.curselection():
+            self.listbox.activate(self.listbox.curselection())
 
     def on_listbox_select(self, event) -> None:
         if self.listbox.curselection():
@@ -245,24 +245,76 @@ class MachineSettings(tk.Frame):
             with open(BASE_DIR / "machines" / file_name, "r") as file:
                 contents = file.read()
             self.textbox.insert("end", contents)
-            self.cur_selection = self.listbox.curselection()
 
     def get_machines(self) -> None:
-        for file in sorted(list(self.machines_directory.iterdir())):
+        files = list(MACHINE_DIR.iterdir())
+        files = sorted(files, key=lambda file: int(file.stem))
+        for file in files:
             self.listbox.insert(tk.END, f"Machine {file.stem}")
 
     def add_machine(self) -> None:
-        file_count: int = len(list(self.machines_directory.iterdir()))
-        file_name = self.machines_directory / f"{file_count + 1}.txt"
+        file_count: int = len(list(MACHINE_DIR.iterdir()))
+        file_name = MACHINE_DIR / f"{file_count + 1}.txt"
         file_name.touch()
         self.listbox.insert("end", f"Machine {file_count + 1}")
 
-    def on_textbox_edit(self, event) -> None:
-        if self.cur_selection:
-            selected_item = self.listbox.get(self.cur_selection)
+    def delete_machine(self, event=None) -> None:
+        if self.listbox.curselection():
+            file_name = (
+                self.listbox.get(self.listbox.curselection()).split(" ")[1] + ".txt"
+            )
+            (MACHINE_DIR / file_name).unlink()
+            self.listbox.delete(self.listbox.curselection())
+
+    def on_textbox_edit(self, event=None) -> None:
+        if self.listbox.curselection():
+            selected_item = self.listbox.get(self.listbox.curselection())
             file_name = selected_item.split(" ")[1] + ".txt"
-            with open(self.machines_directory / file_name, "w+") as file:
+            with open(MACHINE_DIR / file_name, "w+") as file:
                 file.write(self.textbox.get("1.0", "end"))
+
+    def on_listbox_right_click(self, event) -> None:
+        if self.listbox.get(0, "end"):
+            self.listbox.selection_clear(0, tk.END)
+            self.listbox.selection_set(self.listbox.nearest(event.y))
+            self.listbox.activate(self.listbox.nearest(event.y))
+            rightClickMenu = tk.Menu(self, tearoff=False)
+            rightClickMenu.add_command(
+                label="Delete", font="Arial 10", command=self.delete_machine
+            )
+            rightClickMenu.tk_popup(event.x_root, event.y_root)
+
+    def on_right_click(self, event) -> None:
+        rightClickMenu = tk.Menu(self, tearoff=False)
+        rightClickMenu.add_command(label="Cut", font="Arial 10", command=self.on_cut)
+        rightClickMenu.add_command(label="Copy", font="Arial 10", command=self.on_copy)
+        rightClickMenu.add_command(
+            label="Paste", font="Arial 10", command=self.on_paste
+        )
+        rightClickMenu.tk_popup(event.x_root, event.y_root)
+
+    def on_cut(self, event=None) -> None:
+        if self.textbox.tag_ranges("sel"):
+            selected_text: str = self.textbox.get("sel.first", "sel.last")
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+            self.textbox.delete("sel.first", "sel.last")
+            self.on_textbox_edit()
+
+    def on_copy(self, event=None) -> None:
+        if self.textbox.tag_ranges("sel"):
+            selected_text: str = self.textbox.get("sel.first", "sel.last")
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+            self.on_textbox_edit()
+
+    def on_paste(self, event=None) -> None:
+        clipboard_text: str = self.clipboard_get()
+        clipboard_text += "\n"
+        if self.textbox.tag_ranges("sel"):
+            self.textbox.delete("sel.first", "sel.last")
+        self.textbox.insert("current", clipboard_text)
+        self.on_textbox_edit()
 
 
 class App(tk.Tk):
