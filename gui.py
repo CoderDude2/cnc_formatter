@@ -123,6 +123,11 @@ class CNCFormatter(tk.Frame):
 
             file.write(FOOTER_TEXT)
 
+            with open(MACHINE_DIR.joinpath(f"{int(machine)}.txt")) as machine_file:
+                content = machine_file.read()
+
+            file.write(content)
+
     def is_valid(self, line_text: str) -> bool:
         if re.match(r"\s+[\n]?", line_text) or line_text == "":
             return True
