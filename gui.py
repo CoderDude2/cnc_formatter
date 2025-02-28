@@ -29,8 +29,6 @@ class CNCFormatter(tk.Frame):
     def __init__(self) -> None:
         super().__init__()
 
-        self.event_delete("<<Paste>>", "<Control-v>")
-
         self.line_regex: re.Pattern = re.compile(
             r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})(?![0-9a-zA-Z])"
         )
@@ -47,7 +45,7 @@ class CNCFormatter(tk.Frame):
             selectbackground="#0078d7",
             selectforeground="#ffffff",
         )
-        self.cnc_data_textarea.bind("<Control-v>", self.on_paste)
+        self.cnc_data_textarea.bind("<<Paste>>", self.on_paste)
 
         self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
             self, orient="vertical", command=self.cnc_data_textarea.yview
