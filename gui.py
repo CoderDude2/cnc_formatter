@@ -26,8 +26,8 @@ M99
 
 
 class CNCFormatter(tk.Frame):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, parent, **kwargs) -> None:
+        super().__init__(parent, **kwargs)
 
         self.line_regex: re.Pattern = re.compile(
             r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})(?![0-9a-zA-Z])"
@@ -123,10 +123,12 @@ class CNCFormatter(tk.Frame):
 
             file.write(FOOTER_TEXT)
 
-            with open(MACHINE_DIR.joinpath(f"{int(machine)}.txt")) as machine_file:
-                content = machine_file.read()
+            machine_settings_file: Path = MACHINE_DIR.joinpath(f"{int(machine)}.txt")
+            if machine_settings_file.exists():
+                with open(machine_settings_file) as machine_file:
+                    content = machine_file.read()
 
-            file.write(content)
+                file.write(content)
 
     def is_valid(self, line_text: str) -> bool:
         if re.match(r"\s+[\n]?", line_text) or line_text == "":
@@ -180,7 +182,7 @@ class CNCFormatter(tk.Frame):
             )
 
     def open_output_folder(self) -> None:
-        subprocess.Popen(rf"explorer {OUTPUT_DIR}", shell=False) 
+        subprocess.Popen(rf"explorer {OUTPUT_DIR}", shell=False)
 
     def on_right_click(self, event) -> None:
         rightClickMenu = tk.Menu(self, tearoff=False)
@@ -213,9 +215,8 @@ class CNCFormatter(tk.Frame):
 
 
 class MachineSettings(tk.Frame):
-    def __init__(self) -> None:
-        super().__init__()
-        super().__init__()
+    def __init__(self, parent, **kwargs) -> None:
+        super().__init__(parent, **kwargs)
 
         self.add_machine_btn: tk.Button = tk.Button(
             self, text="+ Add Machine", command=self.add_machine
@@ -345,7 +346,7 @@ class App(tk.Tk):
         self.geometry("300x400")
 
         self.tabmenu: ttk.Notebook = ttk.Notebook(self)
-        self.tabmenu.add(CNCFormatter(), text="Process Data", sticky="nsew")
-        self.tabmenu.add(MachineSettings(), text="Machines")
+        self.tabmenu.add(CNCFormatter(self), text="Process Data", sticky="nsew")
+        self.tabmenu.add(MachineSettings(self), text="Machines")
 
         self.tabmenu.pack(expand=True, fill=tk.BOTH)
