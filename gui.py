@@ -45,7 +45,8 @@ class CNCFormatter(tk.Frame):
             selectbackground="#0078d7",
             selectforeground="#ffffff",
         )
-        self.cnc_data_textarea.bind("<<Paste>>", self.on_paste)
+        self.cnc_data_textarea.event_delete("<<Paste>>", "<Control-V>")
+        self.cnc_data_textarea.bind("<Control-V>", self.on_paste)
 
         self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
             self, orient="vertical", command=self.cnc_data_textarea.yview
@@ -240,7 +241,10 @@ class MachineSettings(tk.Frame):
         self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.listbox.bind("<Button-1>", self.on_listbox_click)
         self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
-        self.textbox.bind("<<Paste>>", self.on_paste)
+
+        self.textbox.event_delete("<<Paste>>", "<Control-V>")
+        self.textbox.bind("<Control-V>", self.on_paste)
+        
         self.textbox.bind("<<Cut>>", self.on_cut)
         self.textbox.bind("<<Copy>>", self.on_copy)
 
