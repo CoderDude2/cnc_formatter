@@ -258,7 +258,54 @@ class CNCFormatter(tk.Frame):
         self.cnc_data_textarea.insert("current", clipboard_text)
 
 
+class AbutmentTypeChoice(tk.Frame):
+    def __init__(self, parent, title:str|None = None, values: list[str]|None = None,**kwargs) -> None:
+        super().__init__(parent, **kwargs)
+        
+        if values is None:
+            self.values: list[str] = []
+        else:
+            self.values = values
+        
+        
+        self.grid_columnconfigure(0, weight=1)
+        if title is not None:
+            tk.Label(self, text=title, background="#FFFFFF", anchor='w').grid(row=0, column=0, sticky='we')
+        for i, value in enumerate(self.values):
+            tk.Checkbutton(self, text=f"{value}", onvalue=True, offvalue=False, anchor='w', background="#FFFFFF").grid(row=i+1, column=0, sticky='we')
+
+
 class MachineSettings(tk.Frame):
+    def __init__(self, parent, **kwargs) -> None:
+        super().__init__(parent, **kwargs)
+
+        self.circle_frame= ttk.Frame(self)
+        self.circle_lbl = ttk.Label(self.circle_frame, text="Select Supported Diameter", anchor='w')
+        self.circle_dropdown = ttk.Combobox(self.circle_frame, values=["10PI", "14PI"])
+
+        self.abutment_type_dd:AbutmentTypeChoice = AbutmentTypeChoice(self, title="Select Supported Abutments",values=["DS", "ASC", "TLOC", "AOT", "AOTP"])
+
+        self.textbox_frame = ttk.Frame(self)
+        self.textbox = tk.Text(self.textbox_frame)
+        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
+            self.textbox_frame, orient="vertical", command=self.textbox.yview
+        )
+        self.textbox["yscrollcommand"] = self.y_scroll.set
+        self.textbox.pack(side=tk.LEFT, expand=True, fill=tk.Y)
+        self.y_scroll.pack(side=tk.RIGHT, expand=True, fill=tk.Y)
+
+        self.grid_columnconfigure(1, weight=1)
+        self.circle_lbl.pack(side=tk.TOP, anchor='w')
+        self.circle_dropdown.pack(side=tk.LEFT)
+
+        self.grid_rowconfigure(2, weight=1)
+        self.circle_frame.grid(row=0, column=0, sticky='nswe', padx=5, pady=5)
+        self.abutment_type_dd.grid(row=1, column=0, sticky='w', padx=5, pady=5)
+        self.textbox_frame.grid(row=2, column=0, sticky='nws', padx=5, pady=5)
+        
+        
+
+class MachineTab(tk.Frame):
     def __init__(self, parent, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
@@ -278,8 +325,9 @@ class MachineSettings(tk.Frame):
 
         self.add_machine_btn.grid(row=0, column=0, sticky="nsew")
         self.listbox.grid(row=1, column=0, sticky="nsew")
-        self.textbox.grid(row=0, column=1, rowspan=2, sticky="nsew")
-        self.y_scroll.grid(row=0, column=2, sticky="ns", rowspan=2)
+        MachineSettings(self).grid(row=0, column=1, rowspan=2, sticky='nsew')
+        # self.textbox.grid(row=0, column=1, rowspan=2, sticky="nsew")
+        # self.y_scroll.grid(row=0, column=2, sticky="ns", rowspan=2)
 
         self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.listbox.bind("<Button-1>", self.on_listbox_click)
@@ -394,6 +442,6 @@ class App(tk.Tk):
 
         self.tabmenu: ttk.Notebook = ttk.Notebook(self)
         self.tabmenu.add(CNCFormatter(self), text="Process Data", sticky="nsew")
-        self.tabmenu.add(MachineSettings(self), text="Machines")
+        self.tabmenu.add(MachineTab(self), text="Machines")
 
         self.tabmenu.pack(expand=True, fill=tk.BOTH)
