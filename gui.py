@@ -58,7 +58,7 @@ class CNCFormatter(tk.Frame):
             self, text="Paste Data Below", font="Arial 11 bold"
         )
 
-        self.nc_file_path: tk.StringVar = tk.StringVar(self, value=f"")
+        self.nc_file_path: tk.StringVar = tk.StringVar(self, value=str(get_previous_workday_all_nc_path()))
         self.folder_selection_frame: tk.Frame = tk.Frame(self)
         self.folder_selection_frame.grid_columnconfigure(0, weight=1)
         self.prg_folder_path_entry: ttk.Entry = ttk.Entry(
@@ -116,7 +116,7 @@ class CNCFormatter(tk.Frame):
             self.cnc_data_textarea.bind("<Button-2>", self.on_right_click)
 
     def select_nc_file_folder(self) -> None:
-        nc_file_path = filedialog.askdirectory()
+        nc_file_path = filedialog.askdirectory(initialdir=get_previous_workday_all_nc_path())
         self.nc_file_path.set(nc_file_path)
 
     def process_text(self) -> None:
