@@ -5,8 +5,11 @@ import subprocess
 from pathlib import Path
 from collections import namedtuple
 from tkinter import ttk
+from tkinter import filedialog
+from datetime import datetime, timedelta, date
 
 BASE_DIR: Path = Path(__file__).resolve().parent
+ERP_DIR: Path = Path(r"\\192.168.1.100\Trubox\####ERP_RM####")
 MACHINE_DIR: Path = BASE_DIR / "machines"
 OUTPUT_DIR: Path = BASE_DIR / "output"
 
@@ -25,6 +28,24 @@ M99
 """
 
 
+def date_as_path(date=None) -> Path:
+    if date is None:
+        date = datetime.now().date()
+    _day = f"D{'0' + str(date.day) if date.day < 10 else str(date.day)}"
+    _month = f"M{'0' + str(date.month) if date.month < 10 else str(date.month)}"
+    _year = f"Y{str(date.year)}"
+    return Path(_year, _month, _day)
+
+
+def get_previous_workday_all_nc_path() -> Path:
+    current_date: date = datetime.now().date()
+    previous_date: date = current_date - timedelta(days=1)
+    if datetime.weekday(current_date) == 0:
+        previous_date = current_date - timedelta(days=3)
+
+    return ERP_DIR / date_as_path(previous_date) / Path("1. CAM/3. NC files/ALL")
+
+
 class CNCFormatter(tk.Frame):
     def __init__(self, parent, **kwargs) -> None:
         super().__init__(parent, **kwargs)
@@ -36,6 +57,21 @@ class CNCFormatter(tk.Frame):
         self.cnc_data_label: tk.Label = tk.Label(
             self, text="Paste Data Below", font="Arial 11 bold"
         )
+
+        self.nc_file_path: tk.StringVar = tk.StringVar(self, value=str(get_previous_workday_all_nc_path()))
+        self.folder_selection_frame: tk.Frame = tk.Frame(self)
+        self.folder_selection_frame.grid_columnconfigure(0, weight=1)
+        self.prg_folder_path_entry: ttk.Entry = ttk.Entry(
+            self.folder_selection_frame, textvariable=self.nc_file_path
+        )
+        self.prg_folder_path_entry.insert(0, "./")
+        self.add_files_btn: tk.Button = tk.Button(
+            self.folder_selection_frame,
+            text="Select PRG Folder",
+            command=self.select_nc_file_folder,
+        )
+        self.prg_folder_path_entry.grid(row=2, column=0, sticky="nswe")
+        self.add_files_btn.grid(row=2, column=1)
 
         self.cnc_data_textarea: tk.Text = tk.Text(self)
         self.cnc_data_textarea.tag_configure(
@@ -65,16 +101,23 @@ class CNCFormatter(tk.Frame):
         self.rowconfigure(1, weight=1)
 
         self.cnc_data_label.grid(row=0, column=0, sticky="we", columnspan=2)
-        self.cnc_data_textarea.grid(row=1, column=0, sticky="nsew")
+        self.cnc_data_textarea.grid(
+            row=1, column=0, sticky="nsew", padx=5, pady=5, columnspan=2
+        )
         self.y_scroll.grid(row=1, column=1, sticky="ns")
+        self.folder_selection_frame.grid(row=2, columnspan=2, sticky="nsew", padx=5)
         self.cnc_process_data_btn.grid(
-            row=2, column=0, sticky="we", padx=5, pady=5, columnspan=2
+            row=3, column=0, sticky="we", padx=5, pady=5, columnspan=2
         )
 
         if os.name == "nt":
             self.cnc_data_textarea.bind("<Button-3>", self.on_right_click)
         else:
             self.cnc_data_textarea.bind("<Button-2>", self.on_right_click)
+
+    def select_nc_file_folder(self) -> None:
+        nc_file_path = filedialog.askdirectory(initialdir=get_previous_workday_all_nc_path())
+        self.nc_file_path.set(nc_file_path)
 
     def process_text(self) -> None:
         for file in OUTPUT_DIR.iterdir():
@@ -244,7 +287,7 @@ class MachineSettings(tk.Frame):
 
         self.textbox.event_delete("<<Paste>>", "<Control-V>")
         self.textbox.bind("<Control-V>", self.on_paste)
-        
+
         self.textbox.bind("<<Cut>>", self.on_cut)
         self.textbox.bind("<<Copy>>", self.on_copy)
 
