@@ -295,8 +295,10 @@ class MachineSettings(tk.Frame):
     def __init__(self, parent, db: DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
-        self.circle_choice = tk.StringVar(value="Ø10")
-        self.abutment_choice = tk.StringVar(value="DS")
+        self.bind("<<field_edited>>", parent.update_machine)
+
+        self.circle_choice = tk.StringVar(value="")
+        self.abutment_choice = tk.StringVar(value="")
 
         self.circle_frame = tk.Frame(self)
         self.circle_lbl = tk.Label(
@@ -308,6 +310,7 @@ class MachineSettings(tk.Frame):
             state="readonly",
             textvariable=self.circle_choice,
         )
+        self.circle_dropdown.bind("<<ComboboxSelected>>", self.on_field_edit)
         self.circle_lbl.pack(side=tk.TOP, anchor="w")
         self.circle_dropdown.pack(side=tk.LEFT)
 
@@ -321,6 +324,7 @@ class MachineSettings(tk.Frame):
             state="readonly",
             textvariable=self.abutment_choice,
         )
+        self.abutment_choice_dropdown.bind("<<ComboboxSelected>>", self.on_field_edit)
         self.abutment_choice_lbl.pack(side=tk.TOP, anchor="w")
         self.abutment_choice_dropdown.pack(side=tk.LEFT)
 
@@ -350,6 +354,7 @@ class MachineSettings(tk.Frame):
 
         self.textbox.bind("<<Cut>>", self.on_cut)
         self.textbox.bind("<<Copy>>", self.on_copy)
+        self.textbox.bind("<KeyRelease>", self.on_field_edit)
 
         if os.name == "nt":
             self.textbox.bind("<Button-3>", self.on_right_click)
@@ -376,6 +381,9 @@ class MachineSettings(tk.Frame):
         self.textbox.delete("1.0", "end")
         self.textbox.insert("end", machine_data.ending_machine_code)
 
+    def on_field_edit(self, *args) -> None:
+        self.event_generate("<<field_edited>>")
+
     def on_right_click(self, event) -> None:
         rightClickMenu = tk.Menu(self, tearoff=False)
         rightClickMenu.add_command(label="Cut", font="Arial 10", command=self.on_cut)
@@ -391,6 +399,7 @@ class MachineSettings(tk.Frame):
             self.clipboard_clear()
             self.clipboard_append(selected_text)
             self.textbox.delete("sel.first", "sel.last")
+            self.on_field_edit()
 
     def on_copy(self, event=None) -> None:
         if self.textbox.tag_ranges("sel"):
@@ -404,6 +413,7 @@ class MachineSettings(tk.Frame):
         if self.textbox.tag_ranges("sel"):
             self.textbox.delete("sel.first", "sel.last")
         self.textbox.insert("current", clipboard_text)
+        self.on_field_edit()
 
 
 class MachineTab(tk.Frame):
@@ -428,6 +438,8 @@ class MachineTab(tk.Frame):
         self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.listbox.bind("<Button-1>", self.on_listbox_click)
         # self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
+
+        self.bind("<<field_edited>>", self.update_machine)
 
         if os.name == "nt":
             self.listbox.bind("<Button-3>", self.on_listbox_right_click)
@@ -460,6 +472,38 @@ class MachineTab(tk.Frame):
             MachineData(machine_count + 1, Diameter.PI10, AbutmentType.DS, "")
         )
         self.listbox.insert("end", f"Machine {machine_count + 1}")
+        self.db.con.commit()
+
+    def update_machine(self, event) -> None:
+        current_selection = self.listbox.curselection()
+
+        if not current_selection:
+            return
+
+        selected_item: str = self.listbox.get(current_selection)
+        machine_number: int = int(selected_item.split(" ")[1])
+
+        diameter: Diameter = Diameter.PI10
+        abutment_type: AbutmentType = AbutmentType.DS
+        match self.machine_settings.circle_choice.get():
+            case "Ø10":
+                diameter = Diameter.PI10
+            case "Ø14":
+                diameter = Diameter.PI14
+        
+        match self.machine_settings.abutment_choice.get():
+            case "DS":
+                abutment_type = AbutmentType.DS
+            case "ASC":
+                abutment_type = AbutmentType.ASC
+            case "AOT & T-L":
+                abutment_type = AbutmentType.AOT_AND_TLOC
+            case "AOT PLUS":
+                abutment_type = AbutmentType.AOT_PLUS
+        
+        machine_data: MachineData = MachineData(machine_number, diameter, abutment_type, self.machine_settings.textbox.get('1.0', 'end'))
+        self.db.update_machine(machine_data)
+        self.db.con.commit()
 
     def delete_machine(self, event=None) -> None:
         current_selection = self.listbox.curselection()
@@ -475,6 +519,7 @@ class MachineTab(tk.Frame):
         if machine_data:
             self.db.delete_machine(machine_data)
             self.listbox.delete(current_selection)
+            self.db.con.commit()
 
     # def on_textbox_edit(self, event=None) -> None:
     #     if self.listbox.curselection():
