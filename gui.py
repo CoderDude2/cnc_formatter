@@ -7,6 +7,7 @@ from collections import namedtuple
 from tkinter import ttk
 from tkinter import filedialog
 from datetime import datetime, timedelta, date
+from dataclasses import dataclass
 
 BASE_DIR: Path = Path(__file__).resolve().parent
 ERP_DIR: Path = Path(r"\\192.168.1.100\Trubox\####ERP_RM####")
@@ -279,29 +280,38 @@ class MachineSettings(tk.Frame):
     def __init__(self, parent, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
-        self.circle_frame= ttk.Frame(self)
-        self.circle_lbl = ttk.Label(self.circle_frame, text="Select Supported Diameter", anchor='w')
-        self.circle_dropdown = ttk.Combobox(self.circle_frame, values=["10PI", "14PI"])
-
-        self.abutment_type_dd:AbutmentTypeChoice = AbutmentTypeChoice(self, title="Select Supported Abutments",values=["DS", "ASC", "TLOC", "AOT", "AOTP"])
-
-        self.textbox_frame = ttk.Frame(self)
-        self.textbox = tk.Text(self.textbox_frame)
-        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
-            self.textbox_frame, orient="vertical", command=self.textbox.yview
-        )
-        self.textbox["yscrollcommand"] = self.y_scroll.set
-        self.textbox.pack(side=tk.LEFT, expand=True, fill=tk.Y)
-        self.y_scroll.pack(side=tk.RIGHT, expand=True, fill=tk.Y)
-
-        self.grid_columnconfigure(1, weight=1)
+        self.circle_frame = tk.Frame(self)
+        self.circle_lbl = tk.Label(self.circle_frame, text="Supported Diameter", anchor='w')
+        self.circle_dropdown = ttk.Combobox(self.circle_frame, values=["Ø10", "Ø14"], state="readonly")
         self.circle_lbl.pack(side=tk.TOP, anchor='w')
         self.circle_dropdown.pack(side=tk.LEFT)
 
+        self.abutment_choice_frame= tk.Frame(self)
+        self.abutment_choice_lbl = tk.Label(self.abutment_choice_frame, text="Supported Abutments", anchor='w')
+        self.abutment_choice_dropdown = ttk.Combobox(self.abutment_choice_frame, values=["DS", "ASC", "AOT & T-L", "AOT PLUS"], state="readonly")
+        self.abutment_choice_lbl.pack(side=tk.TOP, anchor='w')
+        self.abutment_choice_dropdown.pack(side=tk.LEFT)
+
+        self.text_frame = tk.Frame(self)
+        self.text_frame_lbl = tk.Label(self.text_frame, text="Ending Machine Code")
+        self.text_frame.grid_columnconfigure(0, weight=1)
+        self.text_frame.grid_rowconfigure(1, weight=1)
+        self.textbox = tk.Text(self.text_frame)
+        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
+            self.text_frame, orient="vertical", command=self.textbox.yview
+        )
+        self.textbox["yscrollcommand"] = self.y_scroll.set        
+
+        self.text_frame_lbl.grid(row=0, column=0, sticky='w')
+        self.textbox.grid(row=1, column=0, sticky='nsew')
+        self.y_scroll.grid(row=1, column=1, sticky='ns')
+
+        self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
+
         self.circle_frame.grid(row=0, column=0, sticky='nswe', padx=5, pady=5)
-        self.abutment_type_dd.grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.textbox_frame.grid(row=2, column=0, sticky='nws', padx=5, pady=5)
+        self.abutment_choice_frame.grid(row=1, column=0, sticky='nsew', padx=5, pady=5)
+        self.text_frame.grid(row=2, column=0, sticky='nsew', padx=5, pady=5)
         
         
 
@@ -313,6 +323,7 @@ class MachineTab(tk.Frame):
             self, text="+ Add Machine", command=self.add_machine
         )
         self.listbox = tk.Listbox(self, width=10, exportselection=False)
+        self.machine_settings = MachineSettings(self)
         self.textbox = tk.Text(self)
 
         self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
@@ -325,9 +336,7 @@ class MachineTab(tk.Frame):
 
         self.add_machine_btn.grid(row=0, column=0, sticky="nsew")
         self.listbox.grid(row=1, column=0, sticky="nsew")
-        MachineSettings(self).grid(row=0, column=1, rowspan=2, sticky='nsew')
-        # self.textbox.grid(row=0, column=1, rowspan=2, sticky="nsew")
-        # self.y_scroll.grid(row=0, column=2, sticky="ns", rowspan=2)
+        self.machine_settings.grid(row=0, column=1, rowspan=2, sticky='nsew')
 
         self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.listbox.bind("<Button-1>", self.on_listbox_click)
@@ -438,7 +447,7 @@ class App(tk.Tk):
         self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
         self.title("CNC Formatter")
         self.option_add("*Font", "Arial 11")
-        self.geometry("300x400")
+        self.geometry("400x400")
 
         self.tabmenu: ttk.Notebook = ttk.Notebook(self)
         self.tabmenu.add(CNCFormatter(self), text="Process Data", sticky="nsew")
