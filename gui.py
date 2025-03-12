@@ -7,14 +7,14 @@ from collections import namedtuple
 from tkinter import ttk
 from tkinter import filedialog
 from datetime import datetime, timedelta, date
-from dataclasses import dataclass
+
+from db_util import DB
+from machine_data import MachineData, AbutmentType, Diameter
 
 BASE_DIR: Path = Path(__file__).resolve().parent
 ERP_DIR: Path = Path(r"\\192.168.1.100\Trubox\####ERP_RM####")
 MACHINE_DIR: Path = BASE_DIR / "machines"
 OUTPUT_DIR: Path = BASE_DIR / "output"
-
-MachineData = namedtuple("MachineData", "machine pg_id")
 
 FOOTER_TEXT = """
 M2
@@ -48,9 +48,10 @@ def get_previous_workday_all_nc_path() -> Path:
 
 
 class CNCFormatter(tk.Frame):
-    def __init__(self, parent, **kwargs) -> None:
+    def __init__(self, parent, db:DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
+        self.db:DB = db
         self.line_regex: re.Pattern = re.compile(
             r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})(?![0-9a-zA-Z])"
         )
@@ -137,12 +138,14 @@ class CNCFormatter(tk.Frame):
                 return
 
             self.remove_error(i + 1)
-            machine_data: MachineData | None = self.get_machine_data(line)
-            if machine_data:
-                if not machines.get(machine_data.machine):
-                    machines[machine_data.machine] = [machine_data.pg_id]
+            line_regex: re.Match | None = self.line_regex.match(line)
+            if line_regex:
+                machine_number = line_regex.group("machine")
+                pg_id = line_regex.group("pg_id")
+                if not machines.get(machine_number):
+                    machines[machine_number] = [pg_id]
                 else:
-                    machines[machine_data.machine].append(machine_data.pg_id)
+                    machines[machine_number].append(pg_id)
 
         self.cnc_data_textarea.delete("1.0", "end")
         for k, v in machines.items():
@@ -189,12 +192,6 @@ class CNCFormatter(tk.Frame):
             return False
 
         return True
-
-    def get_machine_data(self, line_text: str) -> MachineData | None:
-        line_regex: re.Match | None = self.line_regex.match(line_text)
-        if line_regex:
-            return MachineData(line_regex.group("machine"), line_regex.group("pg_id"))
-        return None
 
     def insert_error(self, line_index: int) -> None:
         line_count: tuple[int] | None = self.cnc_data_textarea.count(
@@ -295,7 +292,7 @@ class AbutmentTypeChoice(tk.Frame):
 
 
 class MachineSettings(tk.Frame):
-    def __init__(self, parent, **kwargs) -> None:
+    def __init__(self, parent, db:DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
         self.circle_frame = tk.Frame(self)
@@ -343,14 +340,14 @@ class MachineSettings(tk.Frame):
 
 
 class MachineTab(tk.Frame):
-    def __init__(self, parent, **kwargs) -> None:
+    def __init__(self, parent, db:DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
         self.add_machine_btn: tk.Button = tk.Button(
             self, text="+ Add Machine", command=self.add_machine
         )
         self.listbox = tk.Listbox(self, width=10, exportselection=False)
-        self.machine_settings = MachineSettings(self)
+        self.machine_settings = MachineSettings(self, db)
         self.textbox = tk.Text(self)
 
         self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
@@ -471,13 +468,16 @@ class MachineTab(tk.Frame):
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
+
+        self.db = DB()
+
         self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
         self.title("CNC Formatter")
         self.option_add("*Font", "Arial 11")
         self.geometry("400x400")
 
         self.tabmenu: ttk.Notebook = ttk.Notebook(self)
-        self.tabmenu.add(CNCFormatter(self), text="Process Data", sticky="nsew")
-        self.tabmenu.add(MachineTab(self), text="Machines")
+        self.tabmenu.add(CNCFormatter(self, self.db), text="Process Data", sticky="nsew")
+        self.tabmenu.add(MachineTab(self, self.db), text="Machines")
 
         self.tabmenu.pack(expand=True, fill=tk.BOTH)

@@ -26,6 +26,10 @@ class DB:
         res = self.cur.execute("SELECT machine_id FROM machines WHERE machine_number = ?", (machine.machine_number,))
         return res.fetchone()[0]
 
+    def get_machine_by_machine_number(self, machine_number: int) -> MachineData:
+        res = self.cur.execute("SELECT machine_number, supported_diameter, supported_abutment, ending_machine_code FROM machines WHERE machine_number = ?", (machine_number, )).fetchone()
+        return MachineData(res[0], Diameter(res[1]), AbutmentType(res[2]), res[3])
+
     def get_all_machines(self) -> list[MachineData]:
         machines:list[MachineData] = []
 
@@ -81,4 +85,5 @@ if __name__ == "__main__":
     for m in db.get_all_machines():
         print(db.get_machine_id(m), m)
     print(db.get_machine_id(md2))
+    print(db.get_machine_by_machine_number(1))
     
