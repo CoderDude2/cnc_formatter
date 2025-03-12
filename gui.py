@@ -345,6 +345,17 @@ class MachineSettings(tk.Frame):
         self.abutment_choice_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         self.text_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
 
+        self.textbox.event_delete("<<Paste>>", "<Control-V>")
+        self.textbox.bind("<Control-V>", self.on_paste)
+
+        self.textbox.bind("<<Cut>>", self.on_cut)
+        self.textbox.bind("<<Copy>>", self.on_copy)
+
+        if os.name == "nt":
+            self.textbox.bind("<Button-3>", self.on_right_click)
+        else:
+            self.textbox.bind("<Button-2>", self.on_right_click)
+
     def populate(self, machine_data: MachineData) -> None:
         match machine_data.supported_diameter:
             case Diameter.PI10:
@@ -365,6 +376,35 @@ class MachineSettings(tk.Frame):
         self.textbox.delete("1.0", "end")
         self.textbox.insert("end", machine_data.ending_machine_code)
 
+    def on_right_click(self, event) -> None:
+        rightClickMenu = tk.Menu(self, tearoff=False)
+        rightClickMenu.add_command(label="Cut", font="Arial 10", command=self.on_cut)
+        rightClickMenu.add_command(label="Copy", font="Arial 10", command=self.on_copy)
+        rightClickMenu.add_command(
+            label="Paste", font="Arial 10", command=self.on_paste
+        )
+        rightClickMenu.tk_popup(event.x_root, event.y_root)
+    
+    def on_cut(self, event=None) -> None:
+        if self.textbox.tag_ranges("sel"):
+            selected_text: str = self.textbox.get("sel.first", "sel.last")
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+            self.textbox.delete("sel.first", "sel.last")
+
+    def on_copy(self, event=None) -> None:
+        if self.textbox.tag_ranges("sel"):
+            selected_text: str = self.textbox.get("sel.first", "sel.last")
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+
+    def on_paste(self, event=None) -> None:
+        clipboard_text: str = self.clipboard_get()
+        clipboard_text += "\n"
+        if self.textbox.tag_ranges("sel"):
+            self.textbox.delete("sel.first", "sel.last")
+        self.textbox.insert("current", clipboard_text)
+
 
 class MachineTab(tk.Frame):
     def __init__(self, parent, db: DB, **kwargs) -> None:
@@ -377,12 +417,6 @@ class MachineTab(tk.Frame):
         )
         self.listbox = tk.Listbox(self, width=10, exportselection=False)
         self.machine_settings = MachineSettings(self, db)
-        self.textbox = tk.Text(self)
-
-        self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
-            self, orient="vertical", command=self.textbox.yview
-        )
-        self.textbox["yscrollcommand"] = self.y_scroll.set
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -393,19 +427,11 @@ class MachineTab(tk.Frame):
 
         self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.listbox.bind("<Button-1>", self.on_listbox_click)
-        self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
-
-        self.textbox.event_delete("<<Paste>>", "<Control-V>")
-        self.textbox.bind("<Control-V>", self.on_paste)
-
-        self.textbox.bind("<<Cut>>", self.on_cut)
-        self.textbox.bind("<<Copy>>", self.on_copy)
+        # self.textbox.bind("<KeyRelease>", self.on_textbox_edit)
 
         if os.name == "nt":
-            self.textbox.bind("<Button-3>", self.on_right_click)
             self.listbox.bind("<Button-3>", self.on_listbox_right_click)
         else:
-            self.textbox.bind("<Button-2>", self.on_right_click)
             self.listbox.bind("<Button-2>", self.on_listbox_right_click)
 
         self.populate_machine_listbox()
@@ -450,12 +476,12 @@ class MachineTab(tk.Frame):
             self.db.delete_machine(machine_data)
             self.listbox.delete(current_selection)
 
-    def on_textbox_edit(self, event=None) -> None:
-        if self.listbox.curselection():
-            selected_item = self.listbox.get(self.listbox.curselection())
-            file_name = selected_item.split(" ")[1] + ".txt"
-            with open(MACHINE_DIR / file_name, "w+") as file:
-                file.write(self.textbox.get("1.0", "end"))
+    # def on_textbox_edit(self, event=None) -> None:
+    #     if self.listbox.curselection():
+    #         selected_item = self.listbox.get(self.listbox.curselection())
+    #         file_name = selected_item.split(" ")[1] + ".txt"
+    #         with open(MACHINE_DIR / file_name, "w+") as file:
+    #             file.write(self.textbox.get("1.0", "end"))
 
     def on_listbox_right_click(self, event) -> None:
         if self.listbox.get(0, "end"):
@@ -467,38 +493,6 @@ class MachineTab(tk.Frame):
                 label="Delete", font="Arial 10", command=self.delete_machine
             )
             rightClickMenu.tk_popup(event.x_root, event.y_root)
-
-    def on_right_click(self, event) -> None:
-        rightClickMenu = tk.Menu(self, tearoff=False)
-        rightClickMenu.add_command(label="Cut", font="Arial 10", command=self.on_cut)
-        rightClickMenu.add_command(label="Copy", font="Arial 10", command=self.on_copy)
-        rightClickMenu.add_command(
-            label="Paste", font="Arial 10", command=self.on_paste
-        )
-        rightClickMenu.tk_popup(event.x_root, event.y_root)
-
-    def on_cut(self, event=None) -> None:
-        if self.textbox.tag_ranges("sel"):
-            selected_text: str = self.textbox.get("sel.first", "sel.last")
-            self.clipboard_clear()
-            self.clipboard_append(selected_text)
-            self.textbox.delete("sel.first", "sel.last")
-            self.on_textbox_edit()
-
-    def on_copy(self, event=None) -> None:
-        if self.textbox.tag_ranges("sel"):
-            selected_text: str = self.textbox.get("sel.first", "sel.last")
-            self.clipboard_clear()
-            self.clipboard_append(selected_text)
-            self.on_textbox_edit()
-
-    def on_paste(self, event=None) -> None:
-        clipboard_text: str = self.clipboard_get()
-        clipboard_text += "\n"
-        if self.textbox.tag_ranges("sel"):
-            self.textbox.delete("sel.first", "sel.last")
-        self.textbox.insert("current", clipboard_text)
-        self.on_textbox_edit()
 
 
 class App(tk.Tk):
