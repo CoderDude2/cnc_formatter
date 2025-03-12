@@ -81,6 +81,7 @@ if __name__ == "__main__":
 
     db.add_machine(md)
     db.add_machine(md2)
+    db.con.commit()
     db.update_machine(MachineData(2, Diameter.PI10, AbutmentType.AOT_AND_TLOC, "AOT&TLOC ending text"))
     db.delete_machine(md)
     db.add_machine(md)

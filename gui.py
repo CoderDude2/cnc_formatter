@@ -49,10 +49,10 @@ def get_previous_workday_all_nc_path() -> Path:
 
 
 class CNCFormatter(tk.Frame):
-    def __init__(self, parent, db:DB, **kwargs) -> None:
+    def __init__(self, parent, db: DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
-        self.db:DB = db
+        self.db: DB = db
         self.line_regex: re.Pattern = re.compile(
             r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})(?![0-9a-zA-Z])"
         )
@@ -292,7 +292,7 @@ class AbutmentTypeChoice(tk.Frame):
 
 
 class MachineSettings(tk.Frame):
-    def __init__(self, parent, db:DB, **kwargs) -> None:
+    def __init__(self, parent, db: DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
         self.circle_choice = tk.StringVar(value="Ø10")
@@ -303,7 +303,10 @@ class MachineSettings(tk.Frame):
             self.circle_frame, text="Supported Diameter", anchor="w"
         )
         self.circle_dropdown = ttk.Combobox(
-            self.circle_frame, values=["Ø10", "Ø14"], state="readonly", textvariable=self.circle_choice
+            self.circle_frame,
+            values=["Ø10", "Ø14"],
+            state="readonly",
+            textvariable=self.circle_choice,
         )
         self.circle_lbl.pack(side=tk.TOP, anchor="w")
         self.circle_dropdown.pack(side=tk.LEFT)
@@ -316,7 +319,7 @@ class MachineSettings(tk.Frame):
             self.abutment_choice_frame,
             values=["DS", "ASC", "AOT & T-L", "AOT PLUS"],
             state="readonly",
-            textvariable=self.abutment_choice
+            textvariable=self.abutment_choice,
         )
         self.abutment_choice_lbl.pack(side=tk.TOP, anchor="w")
         self.abutment_choice_dropdown.pack(side=tk.LEFT)
@@ -341,14 +344,14 @@ class MachineSettings(tk.Frame):
         self.circle_frame.grid(row=0, column=0, sticky="nswe", padx=5, pady=5)
         self.abutment_choice_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         self.text_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
-    
-    def populate(self, machine_data:MachineData) -> None:
+
+    def populate(self, machine_data: MachineData) -> None:
         match machine_data.supported_diameter:
             case Diameter.PI10:
                 self.circle_choice.set("Ø10")
             case Diameter.PI14:
                 self.circle_choice.set("Ø14")
-        
+
         match machine_data.supported_abutment:
             case AbutmentType.DS:
                 self.abutment_choice.set("DS")
@@ -358,16 +361,16 @@ class MachineSettings(tk.Frame):
                 self.abutment_choice.set("AOT & T-L")
             case AbutmentType.AOT_PLUS:
                 self.abutment_choice.set("AOT PLUS")
-        
-        self.textbox.delete('1.0', 'end')
-        self.textbox.insert('end', machine_data.ending_machine_code)
+
+        self.textbox.delete("1.0", "end")
+        self.textbox.insert("end", machine_data.ending_machine_code)
 
 
 class MachineTab(tk.Frame):
-    def __init__(self, parent, db:DB, **kwargs) -> None:
+    def __init__(self, parent, db: DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
-        self.db:DB = db
+        self.db: DB = db
 
         self.add_machine_btn: tk.Button = tk.Button(
             self, text="+ Add Machine", command=self.add_machine
@@ -405,7 +408,7 @@ class MachineTab(tk.Frame):
             self.textbox.bind("<Button-2>", self.on_right_click)
             self.listbox.bind("<Button-2>", self.on_listbox_right_click)
 
-        self.get_machines()
+        self.populate_machine_listbox()
 
     def on_listbox_click(self, event) -> None:
         if self.listbox.curselection():
@@ -415,29 +418,37 @@ class MachineTab(tk.Frame):
         if self.listbox.curselection():
             selected_item: str = self.listbox.get(self.listbox.curselection())
             machine_number: int = int(selected_item.split(" ")[1])
-            machine_data:MachineData | None = self.db.get_machine_by_machine_number(machine_number)
+            machine_data: MachineData | None = self.db.get_machine_by_machine_number(
+                machine_number
+            )
             if machine_data:
                 self.machine_settings.populate(machine_data)
 
-    def get_machines(self) -> None:
-        files = list(MACHINE_DIR.iterdir())
-        files = sorted(files, key=lambda file: int(file.stem))
-        for file in files:
-            self.listbox.insert(tk.END, f"Machine {file.stem}")
+    def populate_machine_listbox(self) -> None:
+        for machine in self.db.get_all_machines():
+            self.listbox.insert(tk.END, f"Machine {machine.machine_number}")
 
     def add_machine(self) -> None:
-        file_count: int = len(list(MACHINE_DIR.iterdir()))
-        file_name = MACHINE_DIR / f"{file_count + 1}.txt"
-        file_name.touch()
-        self.listbox.insert("end", f"Machine {file_count + 1}")
+        machine_count: int = len(self.db.get_all_machines())
+        self.db.add_machine(
+            MachineData(machine_count + 1, Diameter.PI10, AbutmentType.DS, "")
+        )
+        self.listbox.insert("end", f"Machine {machine_count + 1}")
 
     def delete_machine(self, event=None) -> None:
-        if self.listbox.curselection():
-            file_name = (
-                self.listbox.get(self.listbox.curselection()).split(" ")[1] + ".txt"
-            )
-            (MACHINE_DIR / file_name).unlink()
-            self.listbox.delete(self.listbox.curselection())
+        current_selection = self.listbox.curselection()
+
+        if not current_selection:
+            return
+
+        selected_item: str = self.listbox.get(current_selection)
+        machine_number: int = int(selected_item.split(" ")[1])
+        machine_data: MachineData | None = self.db.get_machine_by_machine_number(
+            machine_number
+        )
+        if machine_data:
+            self.db.delete_machine(machine_data)
+            self.listbox.delete(current_selection)
 
     def on_textbox_edit(self, event=None) -> None:
         if self.listbox.curselection():
@@ -502,7 +513,9 @@ class App(tk.Tk):
         self.geometry("400x400")
 
         self.tabmenu: ttk.Notebook = ttk.Notebook(self)
-        self.tabmenu.add(CNCFormatter(self, self.db), text="Process Data", sticky="nsew")
+        self.tabmenu.add(
+            CNCFormatter(self, self.db), text="Process Data", sticky="nsew"
+        )
         self.tabmenu.add(MachineTab(self, self.db), text="Machines")
 
         self.tabmenu.pack(expand=True, fill=tk.BOTH)
