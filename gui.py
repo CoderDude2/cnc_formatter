@@ -2,6 +2,7 @@ import tkinter as tk
 import re
 import os
 import subprocess
+import sqlite3
 from pathlib import Path
 from collections import namedtuple
 from tkinter import ttk
@@ -159,7 +160,6 @@ class CNCFormatter(tk.Frame):
         header: str = f"O{int(machine)}(FOR INPUT           )\n$1\n"
         with machine_file_path.open("w+") as file:
             file.write(header)
-
             num: int = 501
             while num < 505:
                 file.write(f"#{num}=\nG4 U0.5\n")
@@ -295,12 +295,15 @@ class MachineSettings(tk.Frame):
     def __init__(self, parent, db:DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
+        self.circle_choice = tk.StringVar(value="Ø10")
+        self.abutment_choice = tk.StringVar(value="DS")
+
         self.circle_frame = tk.Frame(self)
         self.circle_lbl = tk.Label(
             self.circle_frame, text="Supported Diameter", anchor="w"
         )
         self.circle_dropdown = ttk.Combobox(
-            self.circle_frame, values=["Ø10", "Ø14"], state="readonly"
+            self.circle_frame, values=["Ø10", "Ø14"], state="readonly", textvariable=self.circle_choice
         )
         self.circle_lbl.pack(side=tk.TOP, anchor="w")
         self.circle_dropdown.pack(side=tk.LEFT)
@@ -313,6 +316,7 @@ class MachineSettings(tk.Frame):
             self.abutment_choice_frame,
             values=["DS", "ASC", "AOT & T-L", "AOT PLUS"],
             state="readonly",
+            textvariable=self.abutment_choice
         )
         self.abutment_choice_lbl.pack(side=tk.TOP, anchor="w")
         self.abutment_choice_dropdown.pack(side=tk.LEFT)
@@ -337,11 +341,33 @@ class MachineSettings(tk.Frame):
         self.circle_frame.grid(row=0, column=0, sticky="nswe", padx=5, pady=5)
         self.abutment_choice_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         self.text_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
+    
+    def populate(self, machine_data:MachineData) -> None:
+        match machine_data.supported_diameter:
+            case Diameter.PI10:
+                self.circle_choice.set("Ø10")
+            case Diameter.PI14:
+                self.circle_choice.set("Ø14")
+        
+        match machine_data.supported_abutment:
+            case AbutmentType.DS:
+                self.abutment_choice.set("DS")
+            case AbutmentType.ASC:
+                self.abutment_choice.set("ASC")
+            case AbutmentType.AOT_AND_TLOC:
+                self.abutment_choice.set("AOT & T-L")
+            case AbutmentType.AOT_PLUS:
+                self.abutment_choice.set("AOT PLUS")
+        
+        self.textbox.delete('1.0', 'end')
+        self.textbox.insert('end', machine_data.ending_machine_code)
 
 
 class MachineTab(tk.Frame):
     def __init__(self, parent, db:DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
+
+        self.db:DB = db
 
         self.add_machine_btn: tk.Button = tk.Button(
             self, text="+ Add Machine", command=self.add_machine
@@ -387,12 +413,11 @@ class MachineTab(tk.Frame):
 
     def on_listbox_select(self, event) -> None:
         if self.listbox.curselection():
-            self.textbox.delete("1.0", "end")
             selected_item: str = self.listbox.get(self.listbox.curselection())
-            file_name = selected_item.split(" ")[1] + ".txt"
-            with open(BASE_DIR / "machines" / file_name, "r") as file:
-                contents = file.read()
-            self.textbox.insert("end", contents)
+            machine_number: int = int(selected_item.split(" ")[1])
+            machine_data:MachineData | None = self.db.get_machine_by_machine_number(machine_number)
+            if machine_data:
+                self.machine_settings.populate(machine_data)
 
     def get_machines(self) -> None:
         files = list(MACHINE_DIR.iterdir())
