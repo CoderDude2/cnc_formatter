@@ -59,7 +59,9 @@ class CNCFormatter(tk.Frame):
             self, text="Paste Data Below", font="Arial 11 bold"
         )
 
-        self.nc_file_path: tk.StringVar = tk.StringVar(self, value=str(get_previous_workday_all_nc_path()))
+        self.nc_file_path: tk.StringVar = tk.StringVar(
+            self, value=str(get_previous_workday_all_nc_path())
+        )
         self.folder_selection_frame: tk.Frame = tk.Frame(self)
         self.folder_selection_frame.grid_columnconfigure(0, weight=1)
         self.prg_folder_path_entry: ttk.Entry = ttk.Entry(
@@ -117,7 +119,9 @@ class CNCFormatter(tk.Frame):
             self.cnc_data_textarea.bind("<Button-2>", self.on_right_click)
 
     def select_nc_file_folder(self) -> None:
-        nc_file_path = filedialog.askdirectory(initialdir=get_previous_workday_all_nc_path())
+        nc_file_path = filedialog.askdirectory(
+            initialdir=get_previous_workday_all_nc_path()
+        )
         self.nc_file_path.set(nc_file_path)
 
     def process_text(self) -> None:
@@ -260,20 +264,34 @@ class CNCFormatter(tk.Frame):
 
 
 class AbutmentTypeChoice(tk.Frame):
-    def __init__(self, parent, title:str|None = None, values: list[str]|None = None,**kwargs) -> None:
+    def __init__(
+        self,
+        parent,
+        title: str | None = None,
+        values: list[str] | None = None,
+        **kwargs,
+    ) -> None:
         super().__init__(parent, **kwargs)
-        
+
         if values is None:
             self.values: list[str] = []
         else:
             self.values = values
-        
-        
+
         self.grid_columnconfigure(0, weight=1)
         if title is not None:
-            tk.Label(self, text=title, background="#FFFFFF", anchor='w').grid(row=0, column=0, sticky='we')
+            tk.Label(self, text=title, background="#FFFFFF", anchor="w").grid(
+                row=0, column=0, sticky="we"
+            )
         for i, value in enumerate(self.values):
-            tk.Checkbutton(self, text=f"{value}", onvalue=True, offvalue=False, anchor='w', background="#FFFFFF").grid(row=i+1, column=0, sticky='we')
+            tk.Checkbutton(
+                self,
+                text=f"{value}",
+                onvalue=True,
+                offvalue=False,
+                anchor="w",
+                background="#FFFFFF",
+            ).grid(row=i + 1, column=0, sticky="we")
 
 
 class MachineSettings(tk.Frame):
@@ -281,15 +299,25 @@ class MachineSettings(tk.Frame):
         super().__init__(parent, **kwargs)
 
         self.circle_frame = tk.Frame(self)
-        self.circle_lbl = tk.Label(self.circle_frame, text="Supported Diameter", anchor='w')
-        self.circle_dropdown = ttk.Combobox(self.circle_frame, values=["Ø10", "Ø14"], state="readonly")
-        self.circle_lbl.pack(side=tk.TOP, anchor='w')
+        self.circle_lbl = tk.Label(
+            self.circle_frame, text="Supported Diameter", anchor="w"
+        )
+        self.circle_dropdown = ttk.Combobox(
+            self.circle_frame, values=["Ø10", "Ø14"], state="readonly"
+        )
+        self.circle_lbl.pack(side=tk.TOP, anchor="w")
         self.circle_dropdown.pack(side=tk.LEFT)
 
-        self.abutment_choice_frame= tk.Frame(self)
-        self.abutment_choice_lbl = tk.Label(self.abutment_choice_frame, text="Supported Abutments", anchor='w')
-        self.abutment_choice_dropdown = ttk.Combobox(self.abutment_choice_frame, values=["DS", "ASC", "AOT & T-L", "AOT PLUS"], state="readonly")
-        self.abutment_choice_lbl.pack(side=tk.TOP, anchor='w')
+        self.abutment_choice_frame = tk.Frame(self)
+        self.abutment_choice_lbl = tk.Label(
+            self.abutment_choice_frame, text="Supported Abutments", anchor="w"
+        )
+        self.abutment_choice_dropdown = ttk.Combobox(
+            self.abutment_choice_frame,
+            values=["DS", "ASC", "AOT & T-L", "AOT PLUS"],
+            state="readonly",
+        )
+        self.abutment_choice_lbl.pack(side=tk.TOP, anchor="w")
         self.abutment_choice_dropdown.pack(side=tk.LEFT)
 
         self.text_frame = tk.Frame(self)
@@ -300,20 +328,19 @@ class MachineSettings(tk.Frame):
         self.y_scroll: ttk.Scrollbar = ttk.Scrollbar(
             self.text_frame, orient="vertical", command=self.textbox.yview
         )
-        self.textbox["yscrollcommand"] = self.y_scroll.set        
+        self.textbox["yscrollcommand"] = self.y_scroll.set
 
-        self.text_frame_lbl.grid(row=0, column=0, sticky='w')
-        self.textbox.grid(row=1, column=0, sticky='nsew')
-        self.y_scroll.grid(row=1, column=1, sticky='ns')
+        self.text_frame_lbl.grid(row=0, column=0, sticky="w")
+        self.textbox.grid(row=1, column=0, sticky="nsew")
+        self.y_scroll.grid(row=1, column=1, sticky="ns")
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
-        self.circle_frame.grid(row=0, column=0, sticky='nswe', padx=5, pady=5)
-        self.abutment_choice_frame.grid(row=1, column=0, sticky='nsew', padx=5, pady=5)
-        self.text_frame.grid(row=2, column=0, sticky='nsew', padx=5, pady=5)
-        
-        
+        self.circle_frame.grid(row=0, column=0, sticky="nswe", padx=5, pady=5)
+        self.abutment_choice_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        self.text_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
+
 
 class MachineTab(tk.Frame):
     def __init__(self, parent, **kwargs) -> None:
@@ -336,7 +363,7 @@ class MachineTab(tk.Frame):
 
         self.add_machine_btn.grid(row=0, column=0, sticky="nsew")
         self.listbox.grid(row=1, column=0, sticky="nsew")
-        self.machine_settings.grid(row=0, column=1, rowspan=2, sticky='nsew')
+        self.machine_settings.grid(row=0, column=1, rowspan=2, sticky="nsew")
 
         self.listbox.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.listbox.bind("<Button-1>", self.on_listbox_click)
