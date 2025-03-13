@@ -1,8 +1,9 @@
 import tkinter as tk
 import re
 import os
-import subprocess
+import shutil
 import sqlite3
+import subprocess
 from pathlib import Path
 from collections import namedtuple
 from tkinter import ttk
@@ -136,12 +137,36 @@ class CNCFormatter(tk.Frame):
                     machines[machine_number].append(pg_id)
 
         self.cnc_data_textarea.delete("1.0", "end")
+
         for k, v in machines.items():
-            self.create_machine_file(k, v)
+            self.create_machine_folder(k, v)
         self.open_output_folder()
 
-    def create_machine_file(self, machine: str, pg_ids: list[str]) -> None:
-        machine_file_path: Path = OUTPUT_DIR.joinpath(f"{int(machine)}.prg")
+    def create_machine_folder(self, machine: str, pg_ids: list[str]) -> None:
+        machine_data = self.db.get_machine_by_machine_number(int(machine))
+
+        if not machine_data:
+            return
+        
+        machine_folder_name: list[str] = [f"Machine {machine}"]
+        match machine_data.supported_diameter:
+            case Diameter.PI10:
+                machine_folder_name.append("Ø10")
+            case Diameter.PI14:
+                machine_folder_name.append("Ø14")
+        
+        match machine_data.supported_abutment:
+            case AbutmentType.ASC:
+                machine_folder_name.append("ASC")
+            case AbutmentType.AOT_AND_TLOC:
+                machine_folder_name.append("AOT&T-L")
+            case AbutmentType.AOT_PLUS:
+                machine_folder_name.append("AOT PLUS")
+        
+        machine_folder: Path = OUTPUT_DIR / ' - '.join(machine_folder_name)
+        machine_folder.mkdir(exist_ok=True)
+
+        machine_file_path: Path = machine_folder /  f"{int(machine)}.prg"
         machine_file_path.touch()
 
         header: str = f"O{int(machine)}(FOR INPUT           )\n$1\n"
@@ -155,6 +180,13 @@ class CNCFormatter(tk.Frame):
             for pg_id in pg_ids:
                 file.write(f"#{num}={pg_id}\nG4 U0.5\n")
                 num += 1
+
+                if (get_previous_workday_all_nc_path() / f'{pg_id}.prg').resolve().exists():
+                    shutil.copy2(
+                        (get_previous_workday_all_nc_path() / f'{pg_id}.prg').resolve(),
+                        (machine_folder / f'{pg_id}.prg').resolve()
+                    )
+                    
 
             while num < 600:
                 file.write(f"#{num}=\nG4 U0.5\n")
@@ -173,9 +205,7 @@ class CNCFormatter(tk.Frame):
                 "\n"
             ))
 
-            machine_data = self.db.get_machine_by_machine_number(int(machine))
-            if machine_data:
-                file.write(machine_data.ending_machine_code)
+            file.write(machine_data.ending_machine_code)
 
     def is_valid(self, line_text: str) -> bool:
         if re.match(r"\s+[\n]?", line_text) or line_text == "":
