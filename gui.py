@@ -17,19 +17,6 @@ ERP_DIR: Path = Path(r"\\192.168.1.100\Trubox\####ERP_RM####")
 MACHINE_DIR: Path = BASE_DIR / "machines"
 OUTPUT_DIR: Path = BASE_DIR / "output"
 
-FOOTER_TEXT = """
-M2
-M99
-
-
-$2
-
-M2
-M99
-
-"""
-
-
 def date_as_path(date=None) -> Path:
     if date is None:
         date = datetime.now().date()
@@ -173,14 +160,22 @@ class CNCFormatter(tk.Frame):
                 file.write(f"#{num}=\nG4 U0.5\n")
                 num += 1
 
-            file.write(FOOTER_TEXT)
+            file.write((
+                "\n"
+                "M2\n"
+                "M99\n"
+                "\n"
+                "\n"
+                "$2\n"
+                "\n"
+                "M2\n"
+                "M99\n"
+                "\n"
+            ))
 
-            machine_settings_file: Path = MACHINE_DIR.joinpath(f"{int(machine)}.txt")
-            if machine_settings_file.exists():
-                with open(machine_settings_file) as machine_file:
-                    content = machine_file.read()
-
-                file.write(content)
+            machine_data = self.db.get_machine_by_machine_number(int(machine))
+            if machine_data:
+                file.write(machine_data.ending_machine_code)
 
     def is_valid(self, line_text: str) -> bool:
         if re.match(r"\s+[\n]?", line_text) or line_text == "":
