@@ -3,13 +3,11 @@ import re
 import os
 import time
 import shutil
-import sqlite3
 import subprocess
 import threading
 from pathlib import Path
-from collections import namedtuple
 from tkinter import ttk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from datetime import datetime, timedelta, date
 
 from db_util import DB
@@ -17,15 +15,15 @@ from machine_data import MachineData, AbutmentType, Diameter
 
 BASE_DIR: Path = Path(__file__).resolve().parent
 ERP_DIR: Path = Path(r"\\192.168.1.100\Trubox\####ERP_RM####")
-MACHINE_DIR: Path = BASE_DIR / "machines"
-OUTPUT_DIR: Path = BASE_DIR / "output"
+OUTPUT_DIR: Path = Path("output")
 
-def date_as_path(date=None) -> Path:
+
+def date_as_path(date: date | None = None) -> Path:
     if date is None:
         date = datetime.now().date()
-    _day = f"D{'0' + str(date.day) if date.day < 10 else str(date.day)}"
-    _month = f"M{'0' + str(date.month) if date.month < 10 else str(date.month)}"
-    _year = f"Y{str(date.year)}"
+    _day: str = f"D{'0' + str(date.day) if date.day < 10 else str(date.day)}"
+    _month: str = f"M{'0' + str(date.month) if date.month < 10 else str(date.month)}"
+    _year: str = f"Y{str(date.year)}"
     return Path(_year, _month, _day)
 
 
@@ -37,6 +35,7 @@ def get_previous_workday_all_nc_path() -> Path:
 
     return ERP_DIR / date_as_path(previous_date) / Path("1. CAM/3. NC files/ALL")
 
+
 class LoadingDialog(tk.Toplevel):
     def __init__(self, parent, **kwargs) -> None:
         super().__init__(parent, **kwargs)
@@ -45,28 +44,32 @@ class LoadingDialog(tk.Toplevel):
         self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-        self.attributes('-topmost', True)
+        self.attributes("-topmost", True)
 
-        self.progress_value = tk.DoubleVar(value=0)
-        self.maximum:float = 100
-        
-        self.content_frame:tk.Frame = tk.Frame(self)
-        self.status_label = tk.Label(self.content_frame, text="Status", justify=tk.CENTER)
-        self.loading_bar = ttk.Progressbar(self.content_frame, maximum=self.maximum, variable=self.progress_value)
+        self.progress_value: tk.DoubleVar = tk.DoubleVar(value=0)
+        self.maximum: float = 100.0
+
+        self.content_frame: tk.Frame = tk.Frame(self)
+        self.status_label: tk.Label = tk.Label(
+            self.content_frame, text="Status", justify=tk.CENTER
+        )
+        self.loading_bar: ttk.Progressbar = ttk.Progressbar(
+            self.content_frame, maximum=self.maximum, variable=self.progress_value
+        )
         self.loading_bar.config(value=50)
 
         self.content_frame.grid_columnconfigure(0, weight=1)
-        self.status_label.grid(row=0,column=0,sticky='we')
-        self.loading_bar.grid(row=1,column=0,sticky='we')
+        self.status_label.grid(row=0, column=0, sticky="we")
+        self.loading_bar.grid(row=1, column=0, sticky="we")
 
         self.content_frame.pack(expand=True, fill=tk.X)
-    
-    def on_close(self):
+
+    def on_close(self) -> None:
         pass
 
     def set_status_text(self, text: str) -> None:
         self.status_label.config(text=text)
-    
+
     def set_loading_max(self, value: float) -> None:
         self.maximum = value
         self.loading_bar.config(maximum=value)
@@ -75,6 +78,7 @@ class LoadingDialog(tk.Toplevel):
         self.progress_value.set(self.progress_value.get() + value)
         if self.progress_value.get() >= self.maximum:
             time.sleep(1)
+
 
 class CNCFormatter(tk.Frame):
     def __init__(self, parent, db: DB, **kwargs) -> None:
@@ -165,7 +169,10 @@ class CNCFormatter(tk.Frame):
         self.cnc_process_data_btn.config(state=tk.NORMAL, text="Process")
 
     def process_text(self) -> None:
-        db:DB = DB()
+        if not OUTPUT_DIR.exists():
+            OUTPUT_DIR.mkdir()
+
+        db: DB = DB()
         db.init_db()
 
         for file in OUTPUT_DIR.iterdir():
@@ -182,8 +189,8 @@ class CNCFormatter(tk.Frame):
             self.remove_error(i + 1)
             line_regex: re.Match | None = self.line_regex.match(line)
             if line_regex:
-                machine_number = line_regex.group("machine")
-                pg_id = line_regex.group("pg_id")
+                machine_number: str = line_regex.group("machine")
+                pg_id: str = line_regex.group("pg_id")
                 if not machines.get(machine_number):
                     machines[machine_number] = [pg_id]
                 else:
@@ -192,30 +199,42 @@ class CNCFormatter(tk.Frame):
         self.cnc_data_textarea.delete("1.0", "end")
 
         loading_dialog: LoadingDialog = LoadingDialog(self.parent)
-        max_value: float = len(machines.keys())*10
+        max_value: float = len(machines.keys()) * 10
         loading_dialog.set_loading_max(max_value)
 
-        increment_by: float = loading_dialog.maximum/len(machines.keys())/2
-        
-        for k, v in machines.items():
-            self.create_machine_folder(k, v, db, loading_dialog, increment_by)
-        self.open_output_folder()
+        increment_by: float = loading_dialog.maximum / len(machines.keys()) / 2
+
+        for machine, prg_ids in machines.items():
+            if not db.get_machine_by_machine_number(int(machine)):
+                messagebox.showerror("Missing Machine Settings", f"No machine settings for Machine {machine}")
+            self.create_machine_folder(
+                machine, prg_ids, db, loading_dialog, increment_by
+            )
+        if len(list(OUTPUT_DIR.iterdir())) > 0:
+            self.open_output_folder()
         self.done_processing_callback()
         loading_dialog.destroy()
 
-    def create_machine_folder(self, machine: str, pg_ids: list[str], db:DB, loading_dialog: LoadingDialog, increment_by:float) -> None:
+    def create_machine_folder(
+        self,
+        machine: str,
+        pg_ids: list[str],
+        db: DB,
+        loading_dialog: LoadingDialog,
+        increment_by: float,
+    ) -> None:
         machine_data = db.get_machine_by_machine_number(int(machine))
 
         if not machine_data:
             return
-        
+
         machine_folder_name: list[str] = [f"Machine {machine}"]
         match machine_data.supported_diameter:
             case Diameter.PI10:
                 machine_folder_name.append("Ø10")
             case Diameter.PI14:
                 machine_folder_name.append("Ø14")
-        
+
         match machine_data.supported_abutment:
             case AbutmentType.ASC:
                 machine_folder_name.append("ASC")
@@ -223,16 +242,16 @@ class CNCFormatter(tk.Frame):
                 machine_folder_name.append("AOT&T-L")
             case AbutmentType.AOT_PLUS:
                 machine_folder_name.append("AOT PLUS")
-        
-        machine_folder: Path = OUTPUT_DIR / ' - '.join(machine_folder_name)
+
+        machine_folder: Path = OUTPUT_DIR / " - ".join(machine_folder_name)
         loading_dialog.set_status_text(f"Creating folder {machine_folder.name}")
         loading_dialog.increment_progress_value(increment_by)
         time.sleep(0.1)
         machine_folder.mkdir(exist_ok=True)
 
-        machine_file_path: Path = machine_folder /  f"{int(machine)}.prg"
+        machine_file_path: Path = machine_folder / f"{int(machine)}.prg"
         machine_file_path.touch()
-        
+
         header: str = f"O{int(machine)}(FOR INPUT           )\n$1\n"
         with machine_file_path.open("w+") as file:
             file.write(header)
@@ -247,29 +266,17 @@ class CNCFormatter(tk.Frame):
             for pg_id in pg_ids:
                 file.write(f"#{num}={pg_id}\nG4 U0.5\n")
                 num += 1
-                if (Path(self.nc_file_path.get()) / f'{pg_id}.prg').resolve().exists():
+                if (Path(self.nc_file_path.get()) / f"{pg_id}.prg").resolve().exists():
                     shutil.copy2(
-                        (Path(self.nc_file_path.get()) / f'{pg_id}.prg').resolve(),
-                        (machine_folder / f'{pg_id}.prg').resolve()
+                        (Path(self.nc_file_path.get()) / f"{pg_id}.prg").resolve(),
+                        (machine_folder / f"{pg_id}.prg").resolve(),
                     )
-                    
 
             while num < 600:
                 file.write(f"#{num}=\nG4 U0.5\n")
                 num += 1
 
-            file.write((
-                "\n"
-                "M2\n"
-                "M99\n"
-                "\n"
-                "\n"
-                "$2\n"
-                "\n"
-                "M2\n"
-                "M99\n"
-                "\n"
-            ))
+            file.write(("\nM2\nM99\n\n\n$2\n\nM2\nM99\n\n"))
 
             file.write(machine_data.ending_machine_code)
 
@@ -483,7 +490,7 @@ class MachineSettings(tk.Frame):
             label="Paste", font="Arial 10", command=self.on_paste
         )
         rightClickMenu.tk_popup(event.x_root, event.y_root)
-    
+
     def on_cut(self, event=None) -> None:
         if self.textbox.tag_ranges("sel"):
             selected_text: str = self.textbox.get("sel.first", "sel.last")
@@ -585,7 +592,7 @@ class MachineTab(tk.Frame):
                 diameter = Diameter.PI10
             case "Ø14":
                 diameter = Diameter.PI14
-        
+
         match self.machine_settings.abutment_choice.get():
             case "DS":
                 abutment_type = AbutmentType.DS
@@ -595,8 +602,13 @@ class MachineTab(tk.Frame):
                 abutment_type = AbutmentType.AOT_AND_TLOC
             case "AOT PLUS":
                 abutment_type = AbutmentType.AOT_PLUS
-        
-        machine_data: MachineData = MachineData(machine_number, diameter, abutment_type, self.machine_settings.textbox.get('1.0', 'end'))
+
+        machine_data: MachineData = MachineData(
+            machine_number,
+            diameter,
+            abutment_type,
+            self.machine_settings.textbox.get("1.0", "end"),
+        )
         self.db.update_machine(machine_data)
         self.db.con.commit()
 
@@ -633,6 +645,7 @@ class App(tk.Tk):
         super().__init__()
 
         self.db = DB()
+        self.db.init_db()
 
         self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
         self.title("CNC Formatter")

@@ -6,7 +6,7 @@ BASE_DIR: Path = Path(__file__).resolve().parent
 
 class DB:
     def __init__(self):
-        self.con = sqlite3.connect("machines.db")
+        self.con = sqlite3.connect(BASE_DIR / "machines.db")
         self.cur = self.con.cursor()
     
     def init_db(self):
