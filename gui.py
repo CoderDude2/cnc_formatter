@@ -463,8 +463,12 @@ class MachineTab(tk.Frame):
                 self.machine_settings.populate(machine_data)
 
     def populate_machine_listbox(self) -> None:
-        for machine in self.db.get_all_machines():
+        machines: list[MachineData] = self.db.get_all_machines()
+        for machine in machines:
             self.listbox.insert(tk.END, f"Machine {machine.machine_number}")
+        if len(machines) > 0:
+            self.listbox.selection_set(0)
+            self.machine_settings.populate(machines[0])
 
     def add_machine(self) -> None:
         machine_count: int = len(self.db.get_all_machines())
@@ -520,13 +524,6 @@ class MachineTab(tk.Frame):
             self.db.delete_machine(machine_data)
             self.listbox.delete(current_selection)
             self.db.con.commit()
-
-    # def on_textbox_edit(self, event=None) -> None:
-    #     if self.listbox.curselection():
-    #         selected_item = self.listbox.get(self.listbox.curselection())
-    #         file_name = selected_item.split(" ")[1] + ".txt"
-    #         with open(MACHINE_DIR / file_name, "w+") as file:
-    #             file.write(self.textbox.get("1.0", "end"))
 
     def on_listbox_right_click(self, event) -> None:
         if self.listbox.get(0, "end"):
