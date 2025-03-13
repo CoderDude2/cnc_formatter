@@ -1,9 +1,11 @@
 import tkinter as tk
 import re
 import os
+import time
 import shutil
 import sqlite3
 import subprocess
+import threading
 from pathlib import Path
 from collections import namedtuple
 from tkinter import ttk
@@ -35,11 +37,50 @@ def get_previous_workday_all_nc_path() -> Path:
 
     return ERP_DIR / date_as_path(previous_date) / Path("1. CAM/3. NC files/ALL")
 
+class LoadingDialog(tk.Toplevel):
+    def __init__(self, parent, **kwargs) -> None:
+        super().__init__(parent, **kwargs)
+        self.title("Processing...")
+        self.geometry(f"400x100+{parent.winfo_rootx()}+{parent.winfo_rooty()}")
+        self.iconbitmap(BASE_DIR.joinpath("resources/bitmap.ico"))
+        self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.attributes('-topmost', True)
+
+        self.progress_value = tk.DoubleVar(value=0)
+        self.maximum:float = 100
+        
+        self.content_frame:tk.Frame = tk.Frame(self)
+        self.status_label = tk.Label(self.content_frame, text="Status", justify=tk.CENTER)
+        self.loading_bar = ttk.Progressbar(self.content_frame, maximum=self.maximum, variable=self.progress_value)
+        self.loading_bar.config(value=50)
+
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.status_label.grid(row=0,column=0,sticky='we')
+        self.loading_bar.grid(row=1,column=0,sticky='we')
+
+        self.content_frame.pack(expand=True, fill=tk.X)
+    
+    def on_close(self):
+        pass
+
+    def set_status_text(self, text: str) -> None:
+        self.status_label.config(text=text)
+    
+    def set_loading_max(self, value: float) -> None:
+        self.maximum = value
+        self.loading_bar.config(maximum=value)
+
+    def increment_progress_value(self, value: float) -> None:
+        self.progress_value.set(self.progress_value.get() + value)
+        if self.progress_value.get() >= self.maximum:
+            time.sleep(1)
 
 class CNCFormatter(tk.Frame):
     def __init__(self, parent, db: DB, **kwargs) -> None:
         super().__init__(parent, **kwargs)
 
+        self.parent = parent
         self.db: DB = db
         self.line_regex: re.Pattern = re.compile(
             r"(?P<machine>[0-9]{2})_[0-9]{1}_[0-9]{3}\s+(?P<pg_id>[0-9]{4})(?![0-9a-zA-Z])"
@@ -57,7 +98,6 @@ class CNCFormatter(tk.Frame):
         self.prg_folder_path_entry: ttk.Entry = ttk.Entry(
             self.folder_selection_frame, textvariable=self.nc_file_path
         )
-        self.prg_folder_path_entry.insert(0, "./")
         self.add_files_btn: tk.Button = tk.Button(
             self.folder_selection_frame,
             text="Select PRG Folder",
@@ -87,7 +127,7 @@ class CNCFormatter(tk.Frame):
             text="Process",
             background="#47c9a4",
             foreground="#000000",
-            command=self.process_text,
+            command=self.begin_processing,
         )
 
         self.columnconfigure(0, weight=1)
@@ -114,10 +154,23 @@ class CNCFormatter(tk.Frame):
         )
         self.nc_file_path.set(nc_file_path)
 
+    def begin_processing(self) -> None:
+        self.parent.config(cursor="watch")
+        self.cnc_process_data_btn.config(state=tk.DISABLED, text="Processing...")
+        process_text_thread = threading.Thread(target=self.process_text, daemon=True)
+        process_text_thread.start()
+
+    def done_processing_callback(self) -> None:
+        self.parent.config(cursor="")
+        self.cnc_process_data_btn.config(state=tk.NORMAL, text="Process")
+
     def process_text(self) -> None:
+        db:DB = DB()
+        db.init_db()
+
         for file in OUTPUT_DIR.iterdir():
-            if file.is_file():
-                os.remove(file)
+            if file.is_dir() and file.exists():
+                shutil.rmtree(file)
 
         lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
         machines: dict[str, list[str]] = dict()
@@ -138,12 +191,20 @@ class CNCFormatter(tk.Frame):
 
         self.cnc_data_textarea.delete("1.0", "end")
 
-        for k, v in machines.items():
-            self.create_machine_folder(k, v)
-        self.open_output_folder()
+        loading_dialog: LoadingDialog = LoadingDialog(self.parent)
+        max_value: float = len(machines.keys())*10
+        loading_dialog.set_loading_max(max_value)
 
-    def create_machine_folder(self, machine: str, pg_ids: list[str]) -> None:
-        machine_data = self.db.get_machine_by_machine_number(int(machine))
+        increment_by: float = loading_dialog.maximum/len(machines.keys())/2
+        
+        for k, v in machines.items():
+            self.create_machine_folder(k, v, db, loading_dialog, increment_by)
+        self.open_output_folder()
+        self.done_processing_callback()
+        loading_dialog.destroy()
+
+    def create_machine_folder(self, machine: str, pg_ids: list[str], db:DB, loading_dialog: LoadingDialog, increment_by:float) -> None:
+        machine_data = db.get_machine_by_machine_number(int(machine))
 
         if not machine_data:
             return
@@ -164,11 +225,14 @@ class CNCFormatter(tk.Frame):
                 machine_folder_name.append("AOT PLUS")
         
         machine_folder: Path = OUTPUT_DIR / ' - '.join(machine_folder_name)
+        loading_dialog.set_status_text(f"Creating folder {machine_folder.name}")
+        loading_dialog.increment_progress_value(increment_by)
+        time.sleep(0.1)
         machine_folder.mkdir(exist_ok=True)
 
         machine_file_path: Path = machine_folder /  f"{int(machine)}.prg"
         machine_file_path.touch()
-
+        
         header: str = f"O{int(machine)}(FOR INPUT           )\n$1\n"
         with machine_file_path.open("w+") as file:
             file.write(header)
@@ -177,13 +241,15 @@ class CNCFormatter(tk.Frame):
                 file.write(f"#{num}=\nG4 U0.5\n")
                 num += 1
 
+            loading_dialog.set_status_text(f"Copying files to {machine_folder.name}")
+            loading_dialog.increment_progress_value(increment_by)
+
             for pg_id in pg_ids:
                 file.write(f"#{num}={pg_id}\nG4 U0.5\n")
                 num += 1
-
-                if (get_previous_workday_all_nc_path() / f'{pg_id}.prg').resolve().exists():
+                if (Path(self.nc_file_path.get()) / f'{pg_id}.prg').resolve().exists():
                     shutil.copy2(
-                        (get_previous_workday_all_nc_path() / f'{pg_id}.prg').resolve(),
+                        (Path(self.nc_file_path.get()) / f'{pg_id}.prg').resolve(),
                         (machine_folder / f'{pg_id}.prg').resolve()
                     )
                     
