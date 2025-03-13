@@ -199,6 +199,7 @@ class CNCFormatter(tk.Frame):
         self.cnc_data_textarea.delete("1.0", "end")
 
         loading_dialog: LoadingDialog = LoadingDialog(self.parent)
+        loading_dialog.withdraw()
         max_value: float = len(machines.keys()) * 10
         loading_dialog.set_loading_max(max_value)
 
@@ -223,6 +224,7 @@ class CNCFormatter(tk.Frame):
         loading_dialog: LoadingDialog,
         increment_by: float,
     ) -> None:
+        loading_dialog.deiconify()
         machine_data = db.get_machine_by_machine_number(int(machine))
 
         if not machine_data:
