@@ -184,6 +184,7 @@ class CNCFormatter(tk.Frame):
         for i, line in enumerate(lines):
             if not self.is_valid(line):
                 self.insert_error(i + 1)
+                self.done_processing_callback()
                 return
 
             self.remove_error(i + 1)
