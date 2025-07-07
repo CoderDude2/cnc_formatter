@@ -169,53 +169,57 @@ class CNCFormatter(tk.Frame):
         self.cnc_process_data_btn.config(state=tk.NORMAL, text="Process")
 
     def process_text(self) -> None:
-        if not OUTPUT_DIR.exists():
-            OUTPUT_DIR.mkdir()
+        try:
+            if not OUTPUT_DIR.exists():
+                OUTPUT_DIR.mkdir()
 
-        db: DB = DB()
-        db.init_db()
+            db: DB = DB()
+            db.init_db()
 
-        for file in OUTPUT_DIR.iterdir():
-            if file.is_dir() and file.exists():
-                shutil.rmtree(file)
+            for file in OUTPUT_DIR.iterdir():
+                if file.is_dir() and file.exists():
+                    shutil.rmtree(file)
 
-        lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
-        machines: dict[str, list[str]] = dict()
-        for i, line in enumerate(lines):
-            if not self.is_valid(line):
-                self.insert_error(i + 1)
-                self.done_processing_callback()
-                return
+            lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
+            machines: dict[str, set[str]] = dict()
+            for i, line in enumerate(lines):
+                if not self.is_valid(line):
+                    self.insert_error(i + 1)
+                    self.done_processing_callback()
+                    return
 
-            self.remove_error(i + 1)
-            line_regex: re.Match | None = self.line_regex.match(line)
-            if line_regex:
-                machine_number: str = line_regex.group("machine")
-                pg_id: str = line_regex.group("pg_id")
-                if not machines.get(machine_number):
-                    machines[machine_number] = [pg_id]
-                else:
-                    machines[machine_number].append(pg_id)
+                self.remove_error(i + 1)
+                line_regex: re.Match | None = self.line_regex.match(line)
+                if line_regex:
+                    machine_number: str = line_regex.group("machine")
+                    pg_id: str = line_regex.group("pg_id")
+                    if not machines.get(machine_number):
+                        machines[machine_number] = set([pg_id])
+                    else:
+                        machines[machine_number].add(pg_id)
 
-        self.cnc_data_textarea.delete("1.0", "end")
+            self.cnc_data_textarea.delete("1.0", "end")
 
-        loading_dialog: LoadingDialog = LoadingDialog(self.parent)
-        loading_dialog.withdraw()
-        max_value: float = len(machines.keys()) * 10
-        loading_dialog.set_loading_max(max_value)
+            loading_dialog: LoadingDialog = LoadingDialog(self.parent)
+            loading_dialog.withdraw()
+            max_value: float = len(machines.keys()) * 10
+            loading_dialog.set_loading_max(max_value)
 
-        increment_by: float = loading_dialog.maximum / len(machines.keys()) / 2
+            increment_by: float = loading_dialog.maximum / len(machines.keys()) / 2
 
-        for machine, prg_ids in machines.items():
-            if not db.get_machine_by_machine_number(int(machine)):
-                messagebox.showerror("Missing Machine Settings", f"No machine settings for Machine {machine}")
-            self.create_machine_folder(
-                machine, prg_ids, db, loading_dialog, increment_by
-            )
-        if len(list(OUTPUT_DIR.iterdir())) > 0:
-            self.open_output_folder()
-        self.done_processing_callback()
-        loading_dialog.destroy()
+            for machine, prg_ids in machines.items():
+                if not db.get_machine_by_machine_number(int(machine)):
+                    messagebox.showerror("Missing Machine Settings", f"No machine settings for Machine {machine}")
+                self.create_machine_folder(
+                    machine, list(prg_ids), db, loading_dialog, increment_by
+                )
+            if len(list(OUTPUT_DIR.iterdir())) > 0:
+                self.open_output_folder()
+            self.done_processing_callback()
+            loading_dialog.destroy()
+        except PermissionError:
+            self.done_processing_callback()
+            return
 
     def create_machine_folder(
         self,
