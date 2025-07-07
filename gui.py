@@ -200,6 +200,10 @@ class CNCFormatter(tk.Frame):
 
             self.cnc_data_textarea.delete("1.0", "end")
 
+            if len(machines.keys()) == 0:
+                self.done_processing_callback()
+                return
+
             loading_dialog: LoadingDialog = LoadingDialog(self.parent)
             loading_dialog.withdraw()
             max_value: float = len(machines.keys()) * 10
