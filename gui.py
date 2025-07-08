@@ -181,7 +181,7 @@ class CNCFormatter(tk.Frame):
                     shutil.rmtree(file)
 
             lines: list[str] = self.cnc_data_textarea.get("1.0", "end").splitlines()
-            machines: dict[str, set[str]] = dict()
+            machines: dict[str, list[str]] = dict()
             for i, line in enumerate(lines):
                 if not self.is_valid(line):
                     self.insert_error(i + 1)
@@ -194,9 +194,10 @@ class CNCFormatter(tk.Frame):
                     machine_number: str = line_regex.group("machine")
                     pg_id: str = line_regex.group("pg_id")
                     if not machines.get(machine_number):
-                        machines[machine_number] = set([pg_id])
+                        machines[machine_number] = list([pg_id])
                     else:
-                        machines[machine_number].add(pg_id)
+                        if pg_id not in machines[machine_number]:
+                            machines[machine_number].append(pg_id)
 
             self.cnc_data_textarea.delete("1.0", "end")
 
@@ -221,7 +222,8 @@ class CNCFormatter(tk.Frame):
                 self.open_output_folder()
             self.done_processing_callback()
             loading_dialog.destroy()
-        except PermissionError:
+        except PermissionError as e:
+            messagebox.showwarning("Warning","A file is open in another process. Close it first to continue.")
             self.done_processing_callback()
             return
 
