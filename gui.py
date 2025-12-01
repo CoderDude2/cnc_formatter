@@ -269,7 +269,7 @@ class CNCFormatter(tk.Frame):
         with machine_file_path.open("w+") as file:
             file.write(header)
             num: int = 501
-            while num < 505:
+            while num < 506:
                 file.write(f"#{num}=\nG4 U0.5\n")
                 num += 1
 
