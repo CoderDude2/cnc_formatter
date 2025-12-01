@@ -72,21 +72,4 @@ class DB:
     def delete_machine(self, machine: MachineData) -> None:
         machine_id: int = self.get_machine_id(machine)
         self.cur.execute(("DELETE FROM machines WHERE machine_id = ?"), (machine_id,))
-
-if __name__ == "__main__":
-    md: MachineData = MachineData(1, Diameter.PI14, AbutmentType.DS, "this is ending text")
-    md2: MachineData = MachineData(2, Diameter.PI10, AbutmentType.ASC, "ASC ending text")
-    db: DB = DB()
-    db.init_db()
-
-    db.add_machine(md)
-    db.add_machine(md2)
-    db.con.commit()
-    db.update_machine(MachineData(2, Diameter.PI10, AbutmentType.AOT_AND_TLOC, "AOT&TLOC ending text"))
-    db.delete_machine(md)
-    db.add_machine(md)
-    for m in db.get_all_machines():
-        print(db.get_machine_id(m), m)
-    print(db.get_machine_id(md2))
-    print(db.get_machine_by_machine_number(1))
     
